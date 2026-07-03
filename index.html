@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corso LLM · Modulo 1 — Dentro l'inferenza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAFAF8; --card:#FFFFFF; --ink:#1E2229; --soft:#5A6070; --line:#DDDFDA;
+  --acc:#5B4FD6; --acc-soft:#EDEBFB; --ok:#2E7D4F; --ok-soft:#E4F0E8;
+  --ko:#C0392B; --ko-soft:#F7E4E1; --warn:#D99A1B; --warn-soft:#FBF1DC;
+  --disp:'Space Grotesk',sans-serif; --sans:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:#EEEEEA}
+body{font-family:var(--sans);color:var(--ink);background:var(--bg);max-width:820px;margin:0 auto;min-height:100vh;font-size:16px;line-height:1.6}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.wrap{padding:0 clamp(16px,4vw,44px) 56px}
+.top{padding:30px 0 16px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.top h1{font-family:var(--disp);font-weight:700;font-size:clamp(26px,5vw,40px);line-height:1}
+.top h1 span{color:var(--acc)}
+.top .kick{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:4px}
+.top .sub{font-family:var(--mono);font-size:12px;color:var(--soft)}
+.langs{display:flex;gap:6px}
+.langs button{border:1.5px solid var(--line);border-radius:8px;background:var(--card);padding:6px 12px;font-family:var(--mono);font-size:12px}
+.langs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:10px 0;font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+.hud .cell b{font-size:16px;font-weight:600}
+.hud .streak-on{color:var(--acc)}
+.lvls{display:flex;gap:6px}
+.lvls i{width:24px;height:6px;border-radius:3px;background:var(--line)}
+.lvls i.done{background:var(--ink)}
+.lvls i.now{background:var(--acc)}
+.stage{padding-top:26px;min-height:420px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:8px}
+.headline{font-family:var(--disp);font-weight:700;font-size:clamp(23px,4.2vw,33px);line-height:1.15;margin-bottom:10px}
+.lede{color:var(--soft);max-width:62ch;margin-bottom:22px}
+.lede b{color:var(--ink)}
+.btn{display:inline-block;background:var(--ink);color:#fff;border:none;border-radius:10px;padding:13px 26px;font-family:var(--disp);font-weight:600;font-size:15px}
+.btn:hover{background:var(--acc)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.btn.ghost:hover{background:var(--acc-soft)}
+.lesson{max-width:680px}
+.lesson h3{font-family:var(--disp);font-weight:600;font-size:19px;margin:26px 0 8px}
+.lesson h3:first-child{margin-top:0}
+.lesson p{margin-bottom:12px}
+.lesson b{font-weight:600}
+.lesson .ex{font-family:var(--mono);font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin:12px 0;overflow-x:auto}
+.lesson .key{background:var(--acc-soft);border-radius:10px;padding:12px 15px;margin:14px 0;font-size:15px}
+.lesson .key b{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--acc);display:block;margin-bottom:3px}
+.lesson .warn{background:var(--warn-soft);border-radius:10px;padding:12px 15px;margin:14px 0;font-size:15px}
+.lesson .warn b{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--warn);display:block;margin-bottom:3px}
+.q-count{font-family:var(--mono);font-size:12px;color:var(--soft);margin-bottom:6px}
+.question{font-family:var(--disp);font-weight:600;font-size:clamp(18px,2.9vw,23px);line-height:1.3;margin-bottom:18px;max-width:64ch}
+.options{display:grid;gap:10px;max-width:680px}
+.opt{text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:13px 16px;font-size:15.5px;line-height:1.4;display:flex;gap:12px;align-items:baseline}
+.opt .tag{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--soft);flex:none}
+.opt:hover{border-color:var(--acc);background:var(--acc-soft)}
+.opt.right{background:var(--ok-soft);border-color:var(--ok)}
+.opt.wrong{background:var(--ko-soft);border-color:var(--ko)}
+.opt:disabled{cursor:default}
+.explain{margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--acc-soft);max-width:680px;font-size:14.5px}
+.explain b{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:4px}
+.explain b.ok{color:var(--ok)} .explain b.ko{color:var(--ko)}
+.next-row{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+.mono{font-family:var(--mono)}
+.formula-card{font-family:var(--mono);font-size:clamp(14px,2.6vw,17px);background:var(--ink);color:#fff;border-radius:12px;padding:16px 18px;margin-bottom:20px;max-width:680px;overflow-x:auto}
+.formula-card .hl{color:#B6ACFF}
+.sim{max-width:700px}
+.sim-goal{border:1.5px solid var(--ink);border-radius:12px;padding:14px 16px;margin-bottom:18px;background:var(--card);font-size:15px}
+.sim-goal .mono{font-weight:600}
+.ctrl{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;align-items:center;margin-bottom:12px}
+.ctrl label{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1.5px solid var(--line);border-radius:8px;background:var(--card);padding:7px 13px;font-family:var(--mono);font-size:13px}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:18px 0}
+.readout .r{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card)}
+.readout .r span{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);display:block}
+.readout .r b{font-family:var(--mono);font-size:19px;font-weight:600}
+.readout .ok b{color:var(--ok)}
+.readout .ko b{color:var(--ko)}
+.vbar{height:24px;border:1.5px solid var(--ink);border-radius:8px;display:flex;overflow:hidden;margin-bottom:6px;background:var(--card)}
+.vbar .w{background:var(--acc);transition:width .25s}
+.vbar .c{background:var(--warn);transition:width .25s}
+.vbar-leg{font-family:var(--mono);font-size:11.5px;color:var(--soft);margin-bottom:16px}
+.vbar-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin:0 4px 0 10px}
+.order-pool,.order-line{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;min-height:52px}
+.order-line{border:2px dashed var(--line);border-radius:12px;padding:10px;background:var(--card)}
+.chip{border:1.5px solid var(--ink);border-radius:10px;background:var(--card);padding:10px 14px;font-family:var(--mono);font-size:13px}
+.chip:hover{background:var(--acc-soft)}
+.chip.placed{background:var(--ink);color:#fff;cursor:default}
+.chip.err{animation:shake .3s;border-color:var(--ko);color:var(--ko)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion: reduce){.chip.err{animation:none}}
+.timer{height:8px;border-radius:4px;background:var(--line);margin-bottom:18px;max-width:680px;overflow:hidden}
+.timer i{display:block;height:100%;background:var(--ko);width:100%}
+@media (prefers-reduced-motion: no-preference){.timer i.run{transition:width linear}}
+.final{border:2px solid var(--ink);border-radius:16px;background:var(--card);padding:clamp(20px,4vw,36px);margin-top:8px;text-align:center}
+.badge{width:150px;height:150px;border-radius:50%;background:var(--acc-soft);border:3px solid var(--acc);margin:0 auto 16px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.badge b{font-family:var(--disp);font-weight:700;font-size:17px;line-height:1.15;color:var(--acc);padding:0 14px}
+.badge span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--soft);margin-top:4px}
+.final h2{font-family:var(--disp);font-weight:700;font-size:clamp(24px,4.6vw,34px);margin-bottom:8px}
+.final .motto{color:var(--soft);max-width:52ch;margin:0 auto 18px}
+.f-stats{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px;margin-top:6px}
+.f-stats .s span{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);display:block}
+.f-stats .s b{font-family:var(--mono);font-size:24px;font-weight:600}
+.f-formula{font-family:var(--mono);font-size:12.5px;color:var(--soft);margin-top:16px}
+.share-row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;justify-content:center}
+.toast{font-family:var(--mono);font-size:12px;color:var(--ok);align-self:center}
+.footer-note{font-family:var(--mono);font-size:11px;color:var(--soft);border-top:1px solid var(--line);margin-top:40px;padding-top:12px;text-align:center}
+.gloss{display:grid;gap:10px;max-width:700px;margin-bottom:8px}
+.gloss .g{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 15px;font-size:14.5px;line-height:1.5}
+.gloss .g b{font-family:var(--mono);font-size:13px;color:var(--acc);display:block;margin-bottom:2px}
+.gloss .g u{text-decoration:none;border-bottom:2px solid var(--acc-soft);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="kick" id="h-kick"></div>
+      <h1 id="h-title"></h1>
+      <div class="sub" id="h-sub"></div>
+    </div>
+    <div class="langs" id="langs"></div>
+  </header>
+  <div class="hud" id="hud" hidden>
+    <div class="cell"><span id="hud-pts-l"></span> <b id="hud-score">0</b></div>
+    <div class="cell">Streak <b id="hud-streak">0</b></div>
+    <div class="lvls" id="hud-pages"></div>
+  </div>
+  <main class="stage" id="stage" aria-live="polite"></main>
+  <div class="footer-note" id="foot"></div>
+</div>
+
+<script>
+"use strict";
+const S = { score:0, streak:0, maxStreak:0, correct:0, answered:0, level:0 };
+let R = { screen:"home", i:0, q:0 };
+const stage = document.getElementById("stage");
+const fmtKB = b => b>=1e6 ? (b/1e6).toFixed(1)+" MB" : Math.round(b/1024)+" KB";
+const fmtTok = t => t>=1e6 ? (t/1e6).toFixed(1)+"M" : Math.round(t/1000)+"k";
+const L2cfg = [ {l:32,k:8,d:128,b:2},{l:80,k:8,d:128,b:2},{l:32,k:4,d:64,b:1} ];
+
+/* ============================================================ I18N */
+const I18N = {
+/* ---------------------------------------------------------------- IT */
+it: {
+ui:{kick:"Corso LLM · Modulo 1", title:"Dentro <span>l'inferenza</span>", sub:"Come funziona (davvero) un LLM — dai token alla KV cache",
+foot:"Capitoli + test · token · attention · KV cache · GQA · prefix caching · eviction", pts:"Punti",
+homeEyebrow:"Modulo 1 di una serie", homeTitle:"Come funziona (davvero) un LLM",
+homeLede:`Questo è il <b>primo modulo</b> del corso: la meccanica dell'inferenza. Sei capitoli, dalle basi assolute alla pratica: <b>token e pesi</b>, <b>l'attention (Q, K, V)</b>, <b>la formula della memoria</b>, il <b>budget VRAM</b>, il <b>prefix caching</b> e le <b>eviction policy</b>. Ogni capitolo si legge in 2-3 minuti e finisce con un test a punti: risposte giuste di fila moltiplicano il punteggio. Alla fine ricevi il tuo grado. <span style="color:var(--soft)">Prossimi moduli: memoria e RAG, agenti, training.</span>`,
+start:"Inizia dal capitolo 0", glossBtn:"Glossario", back:"Indietro", goCh1:"Vai al capitolo 1", goTest:"Vai al test",
+chLbl:"Capitolo", testLbl:"Test", question:"Domanda", of:"di", next:"Prossima", nextCh:"Capitolo successivo",
+correct:"Corretto", wrong:"Sbagliato", timeUp:"Tempo scaduto", retry:"Riprova",
+glossTitle:"Le 10 parole del corso",
+formula:`byte/token = <span class="hl">2</span> (K+V) × <span class="hl">layer</span> × <span class="hl">teste KV</span> × <span class="hl">head dim</span> × <span class="hl">byte</span>`,
+fFormula:"byte/token = 2 (K+V) × layer × teste KV × head dim × byte",
+simEyebrow:"Test 3 — Sfida VRAM",
+simGoal:`Obiettivo: <span class="mono">contesto max ≥ 128k</span> e <span class="mono">qualità ≥ 3/6</span> · RTX 4090 · 24 GB · modello 8B · 32 layer`,
+simKV:"Teste KV", simHD:"Head dim", simC:"Cache", simW:"Pesi", simLeg:"24 GB totali", simLegW:"pesi", simLegC:"cache a 128k",
+simRT:"Cache / token", simRC:"Contesto max", simRQ:"Qualità", simShip:"Conferma build",
+simWin:"Build valida", simLose:"Build respinta",
+simWinTxt:"Hai fatto il lavoro di un ML engineer: hai barattato teste KV, precisione della cache e dei pesi finché contesto e qualità sono entrati nel budget. E non c'era UNA soluzione: è una frontiera di compromessi.",
+simNoCtx:"Il contesto non entra: la cache a 128k più i pesi sfondano i 24 GB. Comprimi la cache, i pesi, o riduci le teste KV.",
+simNoQ:"Entra tutto, ma hai compresso troppo: qualità sotto il minimo. Risali su almeno una leva.",
+ordEyebrow:"Test 4 — Ordina il contesto", ordHint:"Clicca i blocchi in ordine: dal più stabile al più volatile",
+ordPerfect:"Ordine perfetto", ordDone:e=>`Completato (${e} error${e===1?"e":"i"})`,
+ordWhy:"System prompt e tool non cambiano mai: compilati una volta, valgono per tutte le richieste. La memoria cambia raramente, la storia solo in coda. La data corrente è il blocco instabile: più in fondo sta, più cache sopravvive. Questa singola regola può valere un taglio dei costi API fino a 10x.",
+grade:"Grado", score:"Punteggio", acc:"Precisione", maxStreak:"Streak max",
+copyBtn:"Copia post per LinkedIn", again:"Rigioca", copied:"Copiato ✓", copyFail:"Copia manuale: seleziona il testo",
+share:(r,s,a)=>`Ho completato il Modulo 1 del corso "Dentro l'inferenza" — un corso-gioco sulla meccanica interna degli LLM.\n\nGrado: ${r} (punteggio ${s}, precisione ${a}%).\n\nCosa si impara: cos'è davvero un LLM (token, pesi, generazione autoregressiva), come funziona l'attention (Q, K, V), perché ogni token in contesto costa ~320 KB di VRAM, come GQA e la quantizzazione comprimono la KV cache, perché il prefix caching impone di ordinare il contesto dal più stabile al più volatile, e perché LRU è la politica di eviction sbagliata per l'attention.\n\n#LLM #AI #inference #KVcache #formazione`,
+ranks:[["Guru","Punteggio da manuale: la KV cache non ha più segreti per te."],["Maestro","Quasi perfetto. Un'altra run e il titolo di Guru è tuo."],["Esperto","Le basi sono solide: la formula e l'ordine del contesto li sai. Rivedi le eviction."],["Apprendista","Buon inizio: rileggi i capitoli 2 e 3 e riprova."],["Novizio","Rigioca: al secondo giro cambia tutto."]]},
+gloss:[
+["Token","Un pezzetto di testo, più o meno una parola. \"Ciao come stai\" sono ~4 token."],
+["Q (Query)","La <u>domanda</u>. Quando il modello sta per scrivere una parola nuova, quella parola chiede alle precedenti: \"chi di voi mi serve?\". Ogni parola nuova fa una domanda nuova."],
+["K (Key)","L'<u>etichetta</u>. Ogni parola già letta si presenta con un'etichetta: \"io parlo di questo, cercami così\". Le domande (Q) vengono confrontate con le etichette (K)."],
+["V (Value)","Il <u>contenuto</u>. Se l'etichetta matcha la domanda, la parola consegna il suo contenuto — l'informazione vera e propria."],
+["Teste","Il modello legge con 32 <u>lettori in parallelo</u>, ognuno auto-specializzato (grammatica, soggetti, tono…). Lavorano tutte sulla <u>stessa</u> richiesta: non c'entrano col servire più utenti."],
+["Teste KV","Trucco salva-memoria (GQA): i 32 lettori <u>condividono 8 archivi</u> di etichette e contenuti, in gruppi da 4. Meno archivi = meno memoria."],
+["Head dim","Quanto è <u>grande la scheda</u> di ogni archivio per ogni parola: con head dim 128, ogni K (e ogni V) è fatta di 128 numeri."],
+["Cache (KV cache)","L'<u>archivio</u> dove si salvano etichette e contenuti delle parole già lette. Vive nella VRAM e cresce col testo."],
+["Pesi","Il <u>cervello fisso</u> del modello: miliardi di numeri imparati in addestramento. Occupano VRAM sempre. Pesi + cache devono starci insieme."],
+["Batch","Quante <u>richieste di utenti diversi</u> girano insieme. Ognuna ha il suo archivio separato: 8 richieste = 8 archivi nella stessa GPU."]],
+ch0:{title:"Cos'è un LLM (le basi vere)", body:`
+<h3>Un solo trucco, ripetuto milioni di volte</h3>
+<p>Un LLM (Large Language Model) fa una sola cosa: <b>data una sequenza di testo, indovina il pezzetto successivo</b>. Tutto qui. "Il gatto è salito sul…" → il modello calcola una probabilità per ogni possibile continuazione ("tavolo" 34%, "tetto" 21%, "divano" 12%…) e ne sceglie una. Poi attacca la parola scelta alla frase e ricomincia. Una risposta di 200 parole = il trucco ripetuto 200 volte. Si chiama generazione <b>autoregressiva</b>.</p>
+<h3>Token: il modello non legge lettere</h3>
+<p>Il testo viene prima spezzato in <b>token</b>: pezzetti di circa una parola. Ogni token corrisponde a un numero in un vocabolario fisso di ~100.000 voci. Il modello lavora solo su numeri.</p>
+<div class="ex">"Ciao, come stai?" → [Ciao] [,] [come] [stai] [?] → 5 token</div>
+<h3>Come "sceglie": il sampling</h3>
+<p>Il modello non sputa una parola: sputa una <b>classifica di probabilità</b> su tutte le parole possibili. Il <i>come</i> peschi da quella classifica cambia il carattere del testo: prendere sempre la più probabile dà testo piatto e ripetitivo; pescare con un po' di casualità dà testo più vario. La manopola si chiama <b>temperature</b>: bassa = prudente, alta = creativo. Stesso modello, manopola diversa, personalità diversa.</p>
+<h3>Il trucco è banale, eseguirlo bene no</h3>
+<p>"Indovina la parola dopo" sembra poca roba, ma per indovinare bene la parola dopo <i>"quindi 47 × 12 fa…"</i> devi saper moltiplicare. Per indovinarla in un giallo devi ricordare chi sapeva cosa. L'obiettivo è semplice, ma per raggiungerlo su trilioni di frasi il modello è <b>costretto</b> a costruirsi dentro grammatica, fatti, logica e ragionamento.</p>
+<p>Dopo l'addestramento base, i modelli tipo ChatGPT o Claude passano da una <b>rifinitura</b> (RLHF) in cui persone valutano le risposte e il modello impara a comportarsi da assistente. La meccanica resta identica — cambia cosa il modello considera una buona continuazione.</p>
+<div class="warn"><b>Le eccezioni (per onestà)</b>Esistono architetture sperimentali che generano diversamente: i <b>diffusion LLM</b> scrivono tutta la frase insieme raffinandola dal "rumore" (come i generatori di immagini), e alcuni modelli predicono più parole per volta. Ma tutti i modelli che usi oggi — GPT, Claude, Llama, Gemini — funzionano esattamente come descritto: una parola alla volta.</div>
+<h3>I pesi: il cervello congelato</h3>
+<p>Dentro il modello ci sono miliardi di numeri chiamati <b>pesi</b> (un modello "8B" ne ha 8 miliardi), fissati durante l'<b>addestramento</b>: si mostra al modello una fetta gigantesca di internet e, ogni volta che sbaglia, i pesi vengono ritoccati per sbagliare meno. Dopo, sono <b>congelati</b>: quando usi il modello (<b>inferenza</b>), i pesi non cambiano mai.</p>
+<h3>Dove gira: GPU e VRAM</h3>
+<p>Tutti questi numeri devono stare in una memoria velocissima attaccata alla GPU: la <b>VRAM</b>. È la risorsa scarsa attorno a cui ruota tutto il corso: i pesi la occupano in modo fisso, e — come vedremo — anche ogni parola del tuo testo se ne mangia un pezzo.</p>
+<div class="key"><b>Da portare a casa</b>Un LLM indovina la parola successiva, una alla volta. Il "sapere" sta nei pesi, congelati dopo l'addestramento. Tutto deve stare nella VRAM della GPU.</div>
+<p>Ultima domanda prima del capitolo 1: per indovinare bene la parola successiva, il modello deve <b>guardare tutte le parole precedenti</b> e capire quali contano. Come fa? Si chiama attention.</p>`},
+ch:[
+{title:"L'attention: Q, K e V", body:`
+<h3>Il problema: chi c'entra con chi?</h3>
+<p>Prendi la frase: <i>"il gatto che ho adottato ieri <b>dormiva</b>"</i>. Per scrivere bene quello che viene dopo "dormiva", il modello deve capire che a dormire è <i>il gatto</i>. Deve collegare parole anche lontane. Il meccanismo si chiama <b>attention</b>.</p>
+<h3>La soluzione: domanda, etichetta, contenuto</h3>
+<p>Per ogni token, il modello calcola tre vettori (liste di numeri):</p>
+<p><b>Q (Query) — la domanda.</b> Appartiene alla parola che si sta elaborando adesso: chiede alle precedenti "chi di voi mi serve?"</p>
+<p><b>K (Key) — l'etichetta.</b> Ogni parola già letta si presenta con un'etichetta: "cercami così". La domanda Q viene confrontata con tutte le etichette K: più matcha, più quella parola è rilevante.</p>
+<p><b>V (Value) — il contenuto.</b> Se l'etichetta matcha, la parola consegna il suo contenuto. I contenuti vengono miscelati in proporzione alla rilevanza (i punteggi passano per la softmax, che li trasforma in percentuali che sommano a 100%).</p>
+<div class="ex">"dormiva" chiede (Q): cerco il soggetto →
+etichetta di "gatto" (K): sostantivo, animale, soggetto candidato → MATCH forte
+→ "gatto" consegna il suo contenuto (V) a "dormiva"</div>
+<h3>Le teste: 32 lettori in parallelo</h3>
+<p>Un solo confronto Q/K nota una sola cosa alla volta. Perciò l'attention lavora con <b>più teste in parallelo</b> (es. 32), ognuna con le proprie Q, K, V: una segue la grammatica, una i soggetti, una il tono. Nessuno glielo assegna: si <b>auto-specializzano</b> durante l'addestramento. E lavorano tutte sulla <u>stessa</u> richiesta — non c'entrano col servire più utenti.</p>
+<h3>Il colpo di genio: la cache</h3>
+<p>L'etichetta e il contenuto di "gatto" <b>non cambieranno mai più</b>. La domanda Q invece appartiene alla parola nuova: ogni parola nuova fa una domanda diversa. Quindi: <b>K e V si calcolano una volta e si salvano</b> (nella KV cache), Q si ricalcola fresca ogni volta.</p>
+<div class="key"><b>Le due fasi dell'inferenza (le hai già viste coi tuoi occhi)</b>Quando mandi un messaggio a ChatGPT o Claude, prima c'è una <b>piccola attesa</b> in cui non appare niente: è il <b>prefill</b> — il modello legge il tuo messaggio tutto in un colpo, come fotografare una pagina intera, e riempie l'archivio K/V. Poi vedi le parole della risposta <b>comparire una alla volta</b>: quello è il <b>decode</b> — e per scrivere OGNI singola parola, il modello rilegge da capo tutto l'archivio. Leggere si fa in un colpo, scrivere una parola alla volta rileggendo tutto: ecco perché i token di risposta costano più di quelli del messaggio.</div>`},
+{title:"La formula: quanto pesa un token", body:`
+<h3>La domanda da un milione di dollari</h3>
+<p>Ogni token nel contesto occupa spazio nella KV cache, che vive nella VRAM. Quanto? Si moltiplicano cinque fattori — come i litri di una piscina (lunghezza × larghezza × profondità): <b>tutto si moltiplica, niente si somma</b>.</p>
+<div class="ex">byte per token = 2 (K+V) × layer × teste KV × head dim × byte</div>
+<p><b>2 (K+V):</b> per ogni parola si salvano due vettori — etichetta K e contenuto V. Due oggetti = tutto il resto contato due volte.</p>
+<p><b>Layer:</b> il modello è una pila di piani identici (es. 32 o 80): ogni piano rilegge il testo a un livello di astrazione più alto (i primi colgono la grammatica, gli ultimi il significato). <b>Ogni piano ha il suo archivio</b>: 80 layer = 80 copie di K e V per parola.</p>
+<p><b>Teste KV:</b> le teste lettrici sono tante (es. 32), ma per risparmiare lavorano in gruppi che <b>condividono lo stesso archivio K/V</b>: 32 lettori, 8 archivi. Si chiama <b>GQA</b> e taglia la cache di 4-8 volte quasi gratis. Nella formula conti gli archivi (8), non i lettori (32).</p>
+<p><b>Head dim:</b> quanto è grande la scheda che ogni archivio compila per ogni parola — tipicamente 128 numeri (nasce dividendo la dimensione interna per il numero di teste: 8192 ÷ 64 = 128).</p>
+<p><b>Byte:</b> con quanta precisione scrivi ogni numero. FP16 = 2 byte ("3,14159"), FP8 = 1 byte, INT4 = mezzo byte ("3"). Più sgranato = archivio più piccolo, piccola perdita di qualità.</p>
+<h3>Esempio completo</h3>
+<div class="ex">Modello 8B: 32 layer, 8 teste KV, head dim 128, FP16
+2 × 32 × 8 × 128 × 2 = 131.072 byte ≈ 128 KB per UN token</div>
+<div class="warn"><b>Il numero che sorprende tutti</b>Un "ciao" pesa 4 byte come testo, ma nel contesto di un modello 70B occupa ~320 KB di VRAM: amplificazione di 80.000 volte. E il totale si moltiplica ancora per i token nel contesto e per le richieste servite insieme.</div>`},
+{title:"Il budget VRAM", body:`
+<h3>Una sola stanza, due inquilini</h3>
+<p>La VRAM è una stanza a dimensione fissa (una RTX 4090 ne ha 24 GB) con due inquilini:</p>
+<p><b>I pesi</b> — il cervello congelato. Occupazione <b>fissa</b>: un 8B in FP16 pesa ~16 GB (8 miliardi × 2 byte). Sono lì dall'accensione.</p>
+<p><b>La cache</b> — l'archivio K/V. Occupazione <b>variabile</b>: cresce con ogni token e si moltiplica per ogni richiesta in parallelo (il <b>batch</b>: ogni utente ha il suo archivio separato, come giocatori con inventari privati).</p>
+<div class="ex">VRAM per la cache = VRAM totale − pesi
+contesto massimo = VRAM per la cache ÷ byte per token</div>
+<h3>Le leve di compressione</h3>
+<p>Se non ci stai: quantizzare i <b>pesi</b> (FP16 → INT8 → INT4 dimezza e ridimezza il cervello, con perdita crescente); quantizzare la <b>cache</b> (stessa logica), ridurre le teste KV, ridurre head dim.</p>
+<div class="warn"><b>Il trade-off che non perdona</b>Ogni leva costa qualità. Comprimere tutto al massimo fa stare contesti enormi… in un modello che scrive male. Il lavoro vero è il compromesso: non esiste UNA soluzione giusta, esiste una frontiera di compromessi validi. Nel test la sperimenterai su una GPU vera.</div>`},
+{title:"Prefix caching: l'ordine che vale il 90%", body:`
+<h3>L'osservazione</h3>
+<p>Migliaia di richieste al giorno iniziano con lo stesso identico testo: il system prompt della tua app, i tool, le istruzioni fisse. Compilare l'archivio K/V per quelle stesse 5.000 parole, ogni volta, è lavoro buttato.</p>
+<h3>La soluzione: compilare una volta, riusare sempre</h3>
+<p>Il <b>prefix caching</b>: se una richiesta inizia con un prefisso già visto, l'archivio di quel prefisso viene <b>riusato</b>. Il risparmio è tale che i provider scontano i "cache hit" fino a 10 volte.</p>
+<h3>La condizione spietata</h3>
+<p>Funziona solo su prefissi <b>identici byte per byte</b>. E peggio: l'archivio della parola 200 dipende da <u>tutte</u> le precedenti. Un solo token diverso in posizione 100 invalida tutto dal token 100 <b>in poi</b>.</p>
+<div class="ex">Richiesta A: [system prompt][tool][data: 1 luglio][conversazione…]
+Richiesta B: [system prompt][tool][data: 2 luglio][conversazione…]
+→ riusabile solo fino a "data": il timestamp brucia tutto il resto</div>
+<h3>Dove vive questa cache? (dentro il provider)</h3>
+<p>La cache <b>non è globale tra tutti gli utenti</b>: è isolata per account. Un po' per privacy ovvia, un po' per una ragione sottile: con una cache condivisa, misurare la velocità di risposta diventerebbe spionaggio — se un tentativo torna "troppo veloce", hai indovinato un prefisso che qualcun altro usa.</p>
+<p><b>Come la ritrovano:</b> il prefisso è diviso in blocchi (~16 token) e ogni blocco riceve un'impronta (hash) che include anche quella del blocco precedente — una catena. Due blocchi hanno la stessa impronta solo se <u>tutto ciò che viene prima è identico</u>. All'arrivo di una richiesta si cercano le impronte, si riusano i blocchi presenti e si ricompila solo dal primo mancante.</p>
+<p><b>Il problema geografico:</b> la cache abita nella memoria di UNA GPU precisa, ma il provider ne ha migliaia. Il traffico viene instradato in modo "appiccicoso": richieste con lo stesso prefisso finiscono sulla macchina con la cache calda. E la cache scade: pochi minuti, rinnovati ad ogni uso.</p>
+<div class="key"><b>Colpo di scena</b>LRU è la politica sbagliata per buttare token DENTRO una sequenza (capitolo 5), ma per buttare interi prefissi DALLA cache condivisa è quella giusta e usata davvero: i prefissi riusati spesso restano caldi, gli abbandonati scadono. Stessa parola, due problemi, risposte opposte.</div>
+<h3>La regola d'oro</h3>
+<div class="key"><b>Dal più stabile al più volatile</b>Componi sempre il contesto così: prima ciò che non cambia mai (system prompt, tool), poi ciò che cambia raramente (memoria utente), poi ciò che cresce solo in coda (storia), e per ultimo ciò che cambia sempre (data corrente, messaggio nuovo). Un timestamp come PRIMA riga è l'errore da manuale: distrugge la cache ad ogni chiamata.</div>
+<p>Nel test dovrai assemblare un contesto nell'ordine giusto. Sembra banale — è la regola che taglia di più la bolletta API.</p>`},
+{title:"Eviction: l'arte di buttare via", body:`
+<h3>Il problema: l'archivio si riempie</h3>
+<p>Conversazioni lunghe, tanti utenti: prima o poi la VRAM finisce e qualcosa va buttato (<b>eviction</b>). Ma buttare la cosa sbagliata non rallenta il modello — lo <b>rompe</b>: qui rimuovere una voce cambia il risultato del calcolo.</p>
+<h3>Perché le ricette classiche falliscono</h3>
+<p><b>LRU</b> ("butta il meno usato di recente") qui degenera: ad ogni parola generata l'attention <u>rilegge tutte le posizioni</u>, quindi risulta tutto "appena usato". Non c'è niente da ordinare.</p>
+<p><b>FIFO</b> ("butta i più vecchi") fa collassare il modello. Colpa degli <b>attention sink</b>: la softmax deve distribuire il 100% di rilevanza da qualche parte; quando nessuna parola è davvero rilevante, l'eccesso finisce scaricato sui primissimi token — anche se semanticamente inutili. Sono la "discarica strutturale" del modello: buttarli manda in tilt tutto.</p>
+<h3>Le ricette che funzionano</h3>
+<p><b>StreamingLLM:</b> tieni sempre i primi 4 token (i sink) + una finestra dei recenti.</p>
+<p><b>Heavy hitters (H2O):</b> l'attention ti dice, gratis, quanto ogni token viene usato. Traccia la rilevanza cumulativa e butta i meno consultati: pochi token "pesanti" raccolgono quasi tutta l'attention.</p>
+<p><b>vLLM:</b> cambia livello — a GPU satura non butta token, <b>sospende intere richieste</b> parcheggiando l'archivio in RAM di sistema, e le riprende quando c'è spazio.</p>
+<div class="key"><b>Il principio generale</b>"Butta il più vecchio" è quasi sempre sbagliato: nel linguaggio, la recency non predice l'importanza. Il segnale giusto è l'uso effettivo — e l'attention lo misura già per te.</div>`},
+{title:"Ricapitolando: perché i token costano", body:`
+<h3>Cinque domande, cinque risposte semplici</h3>
+<p>Tutto il modulo si riassume in cinque "perché". Se li sai spiegare a voce a un collega, sei pronto per la sfida finale.</p>
+<p><b>1. Perché le parole di risposta costano più di quelle della domanda?</b><br>Leggere e scrivere sono lavori diversi. La tua domanda viene <b>letta tutta in un colpo</b> (il prefill — la piccola attesa prima della prima parola). La risposta viene <b>scritta una parola alla volta</b> (il decode — le parole che vedi comparire), e per ogni parola il modello rilegge da capo tutto l'archivio. Immagina di rileggere l'intero quaderno prima di scrivere ogni singola parola.</p>
+<p><b>2. Perché i "cache hit" sono scontati fino a 10 volte?</b><br>Se l'inizio del messaggio è identico a uno già visto, il lavoro di lettura è <b>già fatto e salvato</b>. Il provider non lo rifà — e ti gira il risparmio. Come pagare meno un traduttore per un documento già tradotto a metà.</p>
+<p><b>3. Perché ogni parola nel contesto "costa" anche da ferma?</b><br>Occupa centinaia di KB di memoria GPU per tutta la richiesta. Non la compri: la <b>affitti</b>. E la VRAM è il metro quadro più caro dell'informatica.</p>
+<p><b>4. Perché si comprime la cache?</b><br>Come arrotolare i vestiti in valigia: <b>stessa roba, meno spazio</b>. GQA fa condividere gli archivi, la quantizzazione scrive i numeri con meno cifre. Piccola perdita, grande guadagno.</p>
+<p><b>5. Perché "metti tutto nel contesto" non è la memoria?</b><br>È uno <b>zaino che pesa a ogni passo</b>: ogni parola in più va riletta ad ogni parola generata, per sempre. E con contesti enormi il modello ritrova male le info sepolte nel mezzo. Meglio un archivio esterno da cui pescare solo ciò che serve — argomento del prossimo modulo.</p>
+<div class="warn"><b>Sfida finale</b>Otto domande, 12 secondi l'una, su tutto il modulo. Risposte consecutive moltiplicano i punti. In bocca al lupo.</div>`}],
+l1:{title:"K e V", qs:[
+{q:"Il vettore K di un token serve a…", opts:["Farsi trovare: è l'etichetta confrontata con le query future","Consegnare il contenuto quando il token viene selezionato","Ricordare la posizione del token nella sequenza","Comprimere il token per risparmiare memoria"], a:0, why:"K è la chiave di ricerca: fa solo matching (confronto con le Q). Il contenuto viaggia nel vettore V."},
+{q:"E il vettore V?", opts:["Decide quali token sono rilevanti","È il contenuto consegnato, pesato, a chi ha fatto la ricerca","Contiene la query del token","È una copia di backup di K"], a:1, why:"V non partecipa mai al matching: viene solo miscelato (in proporzione alla rilevanza) nella rappresentazione di chi cerca."},
+{q:"Perché si salvano in archivio K e V delle parole già lette, ma mai Q?", opts:["Q è troppo grande per stare in memoria","Q è identica per tutti i token","K e V restano uguali per sempre (conviene salvarli); la Q è una domanda diversa per ogni parola nuova (salvarla è inutile)","Q viene ricavata da K al volo"], a:2, why:"Etichetta e contenuto della parola 'gatto' non cambieranno mai: salvarli fa risparmiare lavoro. La domanda (Q) appartiene alla parola NUOVA: ogni parola nuova pone una domanda diversa — una Q vecchia non servirebbe mai più a nessuno."},
+{q:"GQA taglia la cache perché…", opts:["Spegne 7 layer su 8","Gruppi di teste query condividono la stessa coppia K/V","Comprime ogni vettore con zip","Usa la metà delle dimensioni per vettore"], a:1, why:"32 teste lettrici, 8 archivi condivisi: 4 teste per archivio. Chi legge resta in 32, gli archivi in memoria scendono a 8."}]},
+l2:{title:"La formula", names:["Modello 8B (GQA, FP16)","Modello 70B (GQA, FP16)","Modello compatto (FP8)"],
+q:(n,c)=>`${n}: ${c.l} layer · ${c.k} teste KV · head dim ${c.d} · ${c.b===2?"FP16 (2 byte)":"FP8 (1 byte)"}. Quanto occupa un token in cache?`,
+why:(c,r)=>`2 × ${c.l} × ${c.k} × ${c.d} × ${c.b} = ${r.toLocaleString("it-IT")} byte ≈ ${fmtKB(r)}. Chi ha risposto la metà ha dimenticato il ×2 dei due vettori K e V.`},
+l4:["System prompt","Definizioni tool","Memoria utente","Storia conversazione","Data corrente","Messaggio nuovo"],
+l5:{title:"Eviction", qs:[
+{q:"Sliding window puro: butti i token più vecchi. Cosa succede?", opts:["Tutto ok, i vecchi non servono","Il modello collassa: hai buttato gli attention sink iniziali","La memoria cresce comunque","Migliora la qualità del testo"], a:1, why:"I primi token sono la 'discarica' strutturale della softmax. StreamingLLM li salva sempre: primi 4 token + finestra recente."},
+{q:"Perché LRU degenera sulla KV cache?", opts:["È troppo lento da implementare","Ogni step di decode legge TUTTE le posizioni: risulta tutto 'appena usato'","Richiede troppa RAM per i timestamp","Funziona solo su CPU"], a:1, why:"LRU vive di dati caldi e freddi. Qui l'attention consulta ogni voce ad ogni parola: la recency non ordina più niente."},
+{q:"Se proprio devi buttare token, quale segnale usi?", opts:["L'ordine alfabetico","La lunghezza del token","L'attention cumulativa ricevuta: sopravvivono gli heavy hitter","Un sorteggio equo"], a:2, why:"I pesi di attention sono un misuratore d'importanza gratuito: pochi token raccolgono quasi tutta la rilevanza (stile H2O)."},
+{q:"GPU satura con 30 richieste attive: cosa fa vLLM?", opts:["Cancella le richieste più vecchie","Sospende intere richieste e ne parcheggia la cache su RAM di sistema","Riduce i layer del modello","Dimezza head dim al volo"], a:1, why:"L'eviction giusta a livello di scheduler è per richiesta, non per token: si riprende quando c'è spazio, senza perdere nulla."}]},
+boss:{title:"Sfida a tempo", qs:[
+{q:"I token di output costano più di quelli di input perché…", opts:["Sono più lunghi","Il decode rilegge tutta la cache per OGNI token: banda di memoria","Il modello si stanca","L'API arrotonda per eccesso"], a:1, why:"Prefill = tutto in un colpo. Decode = una parola alla volta, rileggendo l'archivio ogni volta."},
+{q:"I cache hit sono scontati fino a 10x perché…", opts:["Il prefisso condiviso è già compilato: niente nuovo prefill","Il provider è generoso","Sono token più corti","Vengono serviti da CPU"], a:0, why:"K/V del prefisso compilati una volta, riusati da tutte le richieste."},
+{q:"Un timestamp come PRIMA riga del system prompt…", opts:["Migliora le risposte","Non cambia nulla","Distrugge il prefix cache a ogni chiamata","Riduce la latenza"], a:2, why:"Un token diverso all'inizio invalida tutta la cache successiva."},
+{q:"MLA di DeepSeek attacca la formula…", opts:["Togliendo layer","Cacheando un vettore compresso unico da cui K e V si ricostruiscono","Usando dischi più veloci","Raddoppiando le teste"], a:1, why:"Baratta un po' di calcolo per far crollare il blocco 2 × teste × head dim."},
+{q:"Un 'ciao' in contesto su un 70B con GQA occupa circa…", opts:["4 byte","3 KB","320 KB","2 GB"], a:2, why:"Amplificazione di ~80.000x: vettori K+V su ogni archivio di ogni layer."},
+{q:"Raddoppio i layer E raddoppio il contesto: la cache totale fa…", opts:["+4","×2","×4","Resta uguale"], a:2, why:"Fattori indipendenti si moltiplicano: 2 × 2 = 4. È un volume, non una somma."},
+{q:"Il prefill è…", opts:["La scrittura della risposta, una parola alla volta","La lettura del tuo messaggio, tutto in un colpo (l'attesa prima della prima parola)","La fase di training","La quantizzazione dei pesi"], a:1, why:"Prefill = leggere il messaggio in un colpo e riempire l'archivio. Decode = scrivere parola per parola."},
+{q:"Nella quantizzazione della cache, empiricamente…", opts:["K tollera meno compressione di V","V tollera meno compressione di K","Sono identici","Nessuno dei due si può comprimere"], a:0, why:"K fa il matching: sgranarlo confonde la ricerca. V è solo contenuto miscelato: perdona di più."}]}
+},
+/* ---------------------------------------------------------------- EN */
+en: {
+ui:{kick:"LLM Course · Module 1", title:"Inside <span>inference</span>", sub:"How an LLM (really) works — from tokens to the KV cache",
+foot:"Chapters + tests · tokens · attention · KV cache · GQA · prefix caching · eviction", pts:"Score",
+homeEyebrow:"Module 1 of a series", homeTitle:"How an LLM (really) works",
+homeLede:`This is the <b>first module</b> of the course: the mechanics of inference. Six chapters, from absolute basics to hands-on practice: <b>tokens and weights</b>, <b>attention (Q, K, V)</b>, <b>the memory formula</b>, the <b>VRAM budget</b>, <b>prefix caching</b> and <b>eviction policies</b>. Each chapter takes 2-3 minutes and ends with a scored test: consecutive correct answers multiply your points. At the end you get your rank. <span style="color:var(--soft)">Upcoming modules: memory and RAG, agents, training.</span>`,
+start:"Start from chapter 0", glossBtn:"Glossary", back:"Back", goCh1:"Go to chapter 1", goTest:"Take the test",
+chLbl:"Chapter", testLbl:"Test", question:"Question", of:"of", next:"Next", nextCh:"Next chapter",
+correct:"Correct", wrong:"Wrong", timeUp:"Time's up", retry:"Try again",
+glossTitle:"The 10 words of the course",
+formula:`bytes/token = <span class="hl">2</span> (K+V) × <span class="hl">layers</span> × <span class="hl">KV heads</span> × <span class="hl">head dim</span> × <span class="hl">bytes</span>`,
+fFormula:"bytes/token = 2 (K+V) × layers × KV heads × head dim × bytes",
+simEyebrow:"Test 3 — VRAM challenge",
+simGoal:`Goal: <span class="mono">max context ≥ 128k</span> and <span class="mono">quality ≥ 3/6</span> · RTX 4090 · 24 GB · 8B model · 32 layers`,
+simKV:"KV heads", simHD:"Head dim", simC:"Cache", simW:"Weights", simLeg:"24 GB total", simLegW:"weights", simLegC:"cache at 128k",
+simRT:"Cache / token", simRC:"Max context", simRQ:"Quality", simShip:"Confirm build",
+simWin:"Build approved", simLose:"Build rejected",
+simWinTxt:"You just did an ML engineer's job: you traded KV heads, cache precision and weight precision until context and quality fit the budget. And there was no single answer: it's a frontier of trade-offs.",
+simNoCtx:"The context doesn't fit: cache at 128k plus weights blow past 24 GB. Compress the cache, the weights, or reduce KV heads.",
+simNoQ:"Everything fits, but you compressed too much: quality below the minimum. Ease up on at least one lever.",
+ordEyebrow:"Test 4 — Order the context", ordHint:"Click the blocks in order: from most stable to most volatile",
+ordPerfect:"Perfect order", ordDone:e=>`Completed (${e} mistake${e===1?"":"s"})`,
+ordWhy:"System prompt and tools never change: compiled once, reused by every request. Memory changes rarely, history only grows at the end. The current date is the unstable block: the further back it sits, the more cache survives. This single rule can cut API costs by up to 10x.",
+grade:"Rank", score:"Score", acc:"Accuracy", maxStreak:"Max streak",
+copyBtn:"Copy LinkedIn post", again:"Play again", copied:"Copied ✓", copyFail:"Copy manually: select the text",
+share:(r,s,a)=>`I completed Module 1 of "Inside Inference" — a course-game about the internal mechanics of LLMs.\n\nRank: ${r} (score ${s}, accuracy ${a}%).\n\nWhat you learn: what an LLM really is (tokens, weights, autoregressive generation), how attention works (Q, K, V), why every token in context costs ~320 KB of VRAM, how GQA and quantization compress the KV cache, why prefix caching forces you to order the context from most stable to most volatile, and why LRU is the wrong eviction policy for attention.\n\n#LLM #AI #inference #KVcache`,
+ranks:[["Guru","Textbook score: the KV cache holds no more secrets for you."],["Master","Almost perfect. One more run and the Guru title is yours."],["Expert","Solid foundations: you know the formula and context ordering. Review eviction."],["Apprentice","Good start: reread chapters 2 and 3 and try again."],["Novice","Play again: the second run changes everything."]]},
+gloss:[
+["Token","A little piece of text, roughly one word. \"Hi how are you\" is ~4 tokens."],
+["Q (Query)","The <u>question</u>. When the model is about to write a new word, that word asks the previous ones: \"which of you do I need?\". Every new word asks a new question."],
+["K (Key)","The <u>label</u>. Every word already read shows a label: \"this is what I'm about, find me like this\". Questions (Q) are compared against labels (K)."],
+["V (Value)","The <u>content</u>. If the label matches the question, the word delivers its content — the actual information."],
+["Heads","The model reads with 32 <u>parallel readers</u>, each self-specialized (grammar, subjects, tone…). They all work on the <u>same</u> request: nothing to do with serving multiple users."],
+["KV heads","A memory-saving trick (GQA): the 32 readers <u>share 8 archives</u> of labels and contents, in groups of 4. Fewer archives = less memory."],
+["Head dim","How <u>big the card</u> each archive fills in per word is: with head dim 128, each K (and each V) is made of 128 numbers."],
+["Cache (KV cache)","The <u>archive</u> storing labels and contents of words already read. It lives in VRAM and grows with the text."],
+["Weights","The model's <u>frozen brain</u>: billions of numbers learned during training. They always occupy VRAM. Weights + cache must fit together."],
+["Batch","How many <u>requests from different users</u> run together. Each has its own separate archive: 8 requests = 8 archives in the same GPU."]],
+ch0:{title:"What an LLM is (the real basics)", body:`
+<h3>One trick, repeated millions of times</h3>
+<p>An LLM (Large Language Model) does one thing: <b>given a sequence of text, it guesses the next little piece</b>. That's it. "The cat climbed on the…" → the model computes a probability for every possible continuation ("table" 34%, "roof" 21%, "couch" 12%…) and picks one. Then it appends the chosen word and starts over. A 200-word answer = the trick repeated 200 times. This is called <b>autoregressive</b> generation.</p>
+<h3>Tokens: the model doesn't read letters</h3>
+<p>Text is first split into <b>tokens</b>: pieces of roughly one word. Each token maps to a number in a fixed vocabulary of ~100,000 entries. The model only works with numbers.</p>
+<div class="ex">"Hi, how are you?" → [Hi] [,] [how] [are] [you] [?] → 6 tokens</div>
+<h3>How it "picks": sampling</h3>
+<p>The model doesn't spit out a word: it spits out a <b>probability ranking</b> over all possible words. <i>How</i> you draw from that ranking shapes the text's character: always taking the most likely gives flat, repetitive text; drawing with a bit of randomness gives variety. The dial is called <b>temperature</b>: low = cautious, high = creative. Same model, different dial, different personality.</p>
+<h3>The trick is trivial, doing it well is not</h3>
+<p>"Guess the next word" sounds like nothing, but to guess well after <i>"so 47 × 12 equals…"</i> you must know how to multiply. To guess it in a murder mystery, you must track who knew what. The goal is simple, but to hit it across trillions of sentences the model is <b>forced</b> to build grammar, facts, logic and reasoning inside itself.</p>
+<p>After base training, models like ChatGPT or Claude go through a <b>refinement step</b> (RLHF) where people rate answers and the model learns to behave like an assistant. The mechanics stay identical — what changes is what counts as a good continuation.</p>
+<div class="warn"><b>The exceptions (for honesty)</b>Experimental architectures generate differently: <b>diffusion LLMs</b> write the whole sentence at once, refining it from "noise" (like image generators), and some models predict several words per step. But every model you use today — GPT, Claude, Llama, Gemini — works exactly as described: one word at a time.</div>
+<h3>Weights: the frozen brain</h3>
+<p>Inside the model are billions of numbers called <b>weights</b> (an "8B" model has 8 billion), fixed during <b>training</b>: the model is shown a giant slice of the internet and, every time it guesses wrong, the weights get nudged to guess less wrong. Afterwards they're <b>frozen</b>: when you use the model (<b>inference</b>), the weights never change.</p>
+<h3>Where it runs: GPU and VRAM</h3>
+<p>All these numbers must sit in ultra-fast memory attached to the GPU: the <b>VRAM</b>. It's the scarce resource this whole course revolves around: the weights occupy it permanently, and — as we'll see — every word of your text eats a piece of it too.</p>
+<div class="key"><b>Take-home</b>An LLM guesses the next word, one at a time. The "knowledge" lives in the weights, frozen after training. Everything must fit in GPU VRAM.</div>
+<p>One last question before chapter 1: to guess the next word well, the model must <b>look at all the previous words</b> and figure out which ones matter. How? It's called attention.</p>`},
+ch:[
+{title:"Attention: Q, K and V", body:`
+<h3>The problem: what relates to what?</h3>
+<p>Take the sentence: <i>"the cat I adopted yesterday <b>was sleeping</b>"</i>. To continue well after "was sleeping", the model must understand that <i>the cat</i> is the one sleeping. It has to connect words even when far apart. The mechanism is called <b>attention</b>.</p>
+<h3>The solution: question, label, content</h3>
+<p>For each token, the model computes three vectors (lists of numbers):</p>
+<p><b>Q (Query) — the question.</b> It belongs to the word being processed right now: it asks the previous ones "which of you do I need?"</p>
+<p><b>K (Key) — the label.</b> Each word already read shows a label: "find me like this". Q is compared against every K: the better the match, the more relevant that word.</p>
+<p><b>V (Value) — the content.</b> If the label matches, the word delivers its content. Contents get blended in proportion to relevance (scores pass through the softmax, which turns them into percentages summing to 100%).</p>
+<div class="ex">"was sleeping" asks (Q): looking for the subject →
+label of "cat" (K): noun, animal, subject candidate → strong MATCH
+→ "cat" delivers its content (V) to "was sleeping"</div>
+<h3>Heads: 32 parallel readers</h3>
+<p>A single Q/K comparison notices one thing at a time. So attention works with <b>multiple heads in parallel</b> (e.g. 32), each with its own Q, K, V: one tracks grammar, one subjects, one tone. Nobody assigns the roles: they <b>self-specialize</b> during training. And they all work on the <u>same</u> request — nothing to do with serving multiple users.</p>
+<h3>The stroke of genius: the cache</h3>
+<p>The label and content of "cat" <b>will never change again</b>. Q instead belongs to the new word: every new word asks a different question. So: <b>K and V are computed once and saved</b> (in the KV cache), Q is recomputed fresh each time.</p>
+<div class="key"><b>The two phases of inference (you've already seen them)</b>When you send a message to ChatGPT or Claude, first there's a <b>short wait</b> where nothing appears: that's <b>prefill</b> — the model reads your message all at once, like photographing an entire page, and fills the K/V archive. Then you see the answer's words <b>appear one by one</b>: that's <b>decode</b> — and to write EACH single word, the model rereads the entire archive from scratch. Reading happens in one shot; writing goes word by word rereading everything: that's why output tokens cost more than input tokens.</div>`},
+{title:"The formula: how much a token weighs", body:`
+<h3>The million-dollar question</h3>
+<p>Every token in context takes space in the KV cache, which lives in VRAM. How much? Multiply five factors — like the liters of a pool (length × width × depth): <b>everything multiplies, nothing adds</b>.</p>
+<div class="ex">bytes per token = 2 (K+V) × layers × KV heads × head dim × bytes</div>
+<p><b>2 (K+V):</b> for each word you save two vectors — label K and content V. Two objects = everything else counted twice.</p>
+<p><b>Layers:</b> the model is a stack of identical floors (e.g. 32 or 80): each floor rereads the text at a higher level of abstraction (early floors catch grammar, later ones meaning). <b>Each floor has its own archive</b>: 80 layers = 80 copies of K and V per word.</p>
+<p><b>KV heads:</b> there are many reader heads (e.g. 32), but to save memory they work in groups that <b>share the same K/V archive</b>: 32 readers, 8 archives. It's called <b>GQA</b> and cuts the cache 4-8x almost for free. In the formula you count archives (8), not readers (32).</p>
+<p><b>Head dim:</b> how big the card each archive fills in per word is — typically 128 numbers (it comes from dividing the internal size by the head count: 8192 ÷ 64 = 128).</p>
+<p><b>Bytes:</b> how precisely each number is written. FP16 = 2 bytes ("3.14159"), FP8 = 1 byte, INT4 = half a byte ("3"). Grainier = smaller archive, small quality loss.</p>
+<h3>Full example</h3>
+<div class="ex">8B model: 32 layers, 8 KV heads, head dim 128, FP16
+2 × 32 × 8 × 128 × 2 = 131,072 bytes ≈ 128 KB for ONE token</div>
+<div class="warn"><b>The number that surprises everyone</b>A "hello" weighs 5 bytes as text, but in the context of a 70B model it occupies ~320 KB of VRAM: a 60,000x amplification. And the total multiplies again by the tokens in context and by the requests served together.</div>`},
+{title:"The VRAM budget", body:`
+<h3>One room, two tenants</h3>
+<p>VRAM is a fixed-size room (an RTX 4090 has 24 GB) with two tenants:</p>
+<p><b>The weights</b> — the frozen brain. <b>Fixed</b> occupancy: an 8B in FP16 weighs ~16 GB (8 billion × 2 bytes). They're there from power-on.</p>
+<p><b>The cache</b> — the K/V archive. <b>Variable</b> occupancy: it grows with every token and multiplies per parallel request (the <b>batch</b>: each user has their own separate archive, like players with private inventories).</p>
+<div class="ex">VRAM for cache = total VRAM − weights
+max context = VRAM for cache ÷ bytes per token</div>
+<h3>The compression levers</h3>
+<p>If it doesn't fit: quantize the <b>weights</b> (FP16 → INT8 → INT4 halves and halves again, with growing quality loss); quantize the <b>cache</b> (same logic), reduce KV heads, reduce head dim.</p>
+<div class="warn"><b>The unforgiving trade-off</b>Every lever costs quality. Compressing everything to the max fits huge contexts… in a model that writes badly. The real job is the compromise: there is no single right answer, only a frontier of valid trade-offs. You'll experience it on a real GPU in the test.</div>`},
+{title:"Prefix caching: the ordering worth 90%", body:`
+<h3>The observation</h3>
+<p>Thousands of daily requests start with the exact same text: your app's system prompt, the tools, the fixed instructions. Compiling the K/V archive for those same 5,000 words, every single time, is wasted work.</p>
+<h3>The solution: compile once, reuse forever</h3>
+<p><b>Prefix caching</b>: if a request starts with an already-seen prefix, that prefix's archive is <b>reused</b>. The savings are so large that providers discount "cache hits" up to 10x.</p>
+<h3>The ruthless condition</h3>
+<p>It only works on <b>byte-for-byte identical</b> prefixes. Worse: word 200's archive depends on <u>all</u> the previous ones. A single different token at position 100 invalidates everything from token 100 <b>onward</b>.</p>
+<div class="ex">Request A: [system prompt][tools][date: July 1][conversation…]
+Request B: [system prompt][tools][date: July 2][conversation…]
+→ reusable only up to "date": the timestamp burns everything after</div>
+<h3>Where does this cache live? (inside the provider)</h3>
+<p>The cache is <b>not global across all users</b>: it's isolated per account. Partly obvious privacy, partly a subtle reason: with a shared cache, measuring response speed would become espionage — if a probe comes back "too fast", you've guessed a prefix someone else is using.</p>
+<p><b>How they find it:</b> the prefix is split into blocks (~16 tokens) and each block gets a fingerprint (hash) that also includes the previous block's fingerprint — a chain. Two blocks share a fingerprint only if <u>everything before is identical</u>. When a request arrives, fingerprints are looked up, existing blocks are reused, and only the first missing block onward is recompiled.</p>
+<p><b>The geography problem:</b> the cache lives in the memory of ONE specific GPU, but the provider has thousands. Traffic is routed "stickily": requests with the same prefix land on the machine holding the warm cache. And the cache expires: a few minutes, renewed on every use.</p>
+<div class="key"><b>Plot twist</b>LRU is the wrong policy for evicting tokens INSIDE a sequence (chapter 5), but for evicting whole prefixes FROM the shared cache it's the right one and actually used: frequently reused prefixes stay warm, abandoned ones expire. Same word, two problems, opposite answers.</div>
+<h3>The golden rule</h3>
+<div class="key"><b>From most stable to most volatile</b>Always build the context like this: first what never changes (system prompt, tools), then what rarely changes (user memory), then what only grows at the end (history), and last what always changes (current date, new message). A timestamp as the FIRST line is the textbook mistake: it destroys the cache on every call.</div>
+<p>In the test you'll assemble a context in the right order. It looks trivial — it's the rule that cuts the API bill the most.</p>`},
+{title:"Eviction: the art of throwing away", body:`
+<h3>The problem: the archive fills up</h3>
+<p>Long conversations, many users: sooner or later VRAM runs out and something must go (<b>eviction</b>). But throwing away the wrong thing doesn't slow the model — it <b>breaks</b> it: here, removing an entry changes the result of the computation.</p>
+<h3>Why the classic recipes fail</h3>
+<p><b>LRU</b> ("evict least recently used") degenerates here: at every generated word, attention <u>rereads all positions</u>, so everything looks "just used". There's nothing left to rank.</p>
+<p><b>FIFO</b> ("evict the oldest") collapses the model. Blame the <b>attention sinks</b>: the softmax must distribute 100% of relevance somewhere; when no word is truly relevant, the excess gets dumped on the very first tokens — even if semantically useless. They're the model's "structural landfill": evicting them breaks everything.</p>
+<h3>The recipes that work</h3>
+<p><b>StreamingLLM:</b> always keep the first 4 tokens (the sinks) + a window of recent ones.</p>
+<p><b>Heavy hitters (H2O):</b> attention tells you, for free, how much each token is used. Track cumulative relevance and evict the least consulted: a few "heavy" tokens collect almost all the attention.</p>
+<p><b>vLLM:</b> changes level — with a saturated GPU it doesn't evict tokens, it <b>suspends entire requests</b>, parking their archive in system RAM, and resumes them when space frees up.</p>
+<div class="key"><b>The general principle</b>"Evict the oldest" is almost always wrong: in language, recency doesn't predict importance. The right signal is actual usage — and attention already measures it for you.</div>`},
+{title:"Recap: why tokens cost money", body:`
+<h3>Five questions, five simple answers</h3>
+<p>The whole module boils down to five "whys". If you can explain them out loud to a colleague, you're ready for the final challenge.</p>
+<p><b>1. Why do answer words cost more than question words?</b><br>Reading and writing are different jobs. Your question is <b>read all at once</b> (prefill — the short wait before the first word appears). The answer is <b>written one word at a time</b> (decode — the words you watch appear), and for each word the model rereads the entire archive from scratch. Imagine rereading the whole notebook before writing every single word.</p>
+<p><b>2. Why are "cache hits" discounted up to 10x?</b><br>If the start of your message is identical to one already seen, the reading work is <b>already done and saved</b>. The provider doesn't redo it — and passes you the savings. Like paying a translator less for a document that's already half translated.</p>
+<p><b>3. Why does every word in context "cost" even sitting still?</b><br>It occupies hundreds of KB of GPU memory for the whole request. You don't buy it: you <b>rent</b> it. And VRAM is the most expensive square meter in computing.</p>
+<p><b>4. Why compress the cache?</b><br>Like rolling clothes in a suitcase: <b>same stuff, less space</b>. GQA makes heads share archives, quantization writes numbers with fewer digits. Small loss, big gain.</p>
+<p><b>5. Why isn't "put everything in the context" real memory?</b><br>It's a <b>backpack that weighs on every step</b>: every extra word must be reread at every generated word, forever. And with huge contexts the model retrieves poorly what's buried in the middle. Better an external archive to pull from only what's needed — the subject of the next module.</p>
+<div class="warn"><b>Final challenge</b>Eight questions, 12 seconds each, on the whole module. Consecutive correct answers multiply points. Good luck.</div>`}],
+l1:{title:"K and V", qs:[
+{q:"A token's K vector is for…", opts:["Being found: it's the label compared against future queries","Delivering the content when the token is selected","Remembering the token's position in the sequence","Compressing the token to save memory"], a:0, why:"K is the search key: it only does matching (comparison with Q). The content travels in the V vector."},
+{q:"And the V vector?", opts:["It decides which tokens are relevant","It's the content delivered, weighted, to whoever did the search","It contains the token's query","It's a backup copy of K"], a:1, why:"V never takes part in matching: it only gets blended (in proportion to relevance) into the searcher's representation."},
+{q:"Why are K and V of already-read words saved, but never Q?", opts:["Q is too big to fit in memory","Q is identical for all tokens","K and V stay the same forever (worth saving); Q is a different question for every new word (saving it is useless)","Q is derived from K on the fly"], a:2, why:"The label and content of 'cat' will never change: saving them saves work. The question (Q) belongs to the NEW word: every new word asks a different question — an old Q would never be useful to anyone again."},
+{q:"GQA cuts the cache because…", opts:["It turns off 7 layers out of 8","Groups of query heads share the same K/V pair","It zips every vector","It uses half the dimensions per vector"], a:1, why:"32 reader heads, 8 shared archives: 4 heads per archive. Readers stay at 32, archives in memory drop to 8."}]},
+l2:{title:"The formula", names:["8B model (GQA, FP16)","70B model (GQA, FP16)","Compact model (FP8)"],
+q:(n,c)=>`${n}: ${c.l} layers · ${c.k} KV heads · head dim ${c.d} · ${c.b===2?"FP16 (2 bytes)":"FP8 (1 byte)"}. How much does one token occupy in cache?`,
+why:(c,r)=>`2 × ${c.l} × ${c.k} × ${c.d} × ${c.b} = ${r.toLocaleString("en-US")} bytes ≈ ${fmtKB(r)}. If you answered half, you forgot the ×2 of the two vectors K and V.`},
+l4:["System prompt","Tool definitions","User memory","Conversation history","Current date","New message"],
+l5:{title:"Eviction", qs:[
+{q:"Pure sliding window: you evict the oldest tokens. What happens?", opts:["All fine, the old ones aren't needed","The model collapses: you evicted the initial attention sinks","Memory grows anyway","Text quality improves"], a:1, why:"The first tokens are the softmax's 'structural landfill'. StreamingLLM always saves them: first 4 tokens + recent window."},
+{q:"Why does LRU degenerate on the KV cache?", opts:["It's too slow to implement","Every decode step reads ALL positions: everything looks 'just used'","It needs too much RAM for timestamps","It only works on CPU"], a:1, why:"LRU lives on hot and cold data. Here attention consults every entry at every word: recency ranks nothing anymore."},
+{q:"If you really must evict tokens, which signal do you use?", opts:["Alphabetical order","Token length","Cumulative attention received: heavy hitters survive","A fair lottery"], a:2, why:"Attention weights are a free importance sensor: a few tokens collect almost all the relevance (H2O style)."},
+{q:"GPU saturated with 30 active requests: what does vLLM do?", opts:["Cancels the oldest requests","Suspends entire requests and parks their cache in system RAM","Reduces the model's layers","Halves head dim on the fly"], a:1, why:"The right eviction at scheduler level is per request, not per token: it resumes when space frees up, losing nothing."}]},
+boss:{title:"Timed challenge", qs:[
+{q:"Output tokens cost more than input tokens because…", opts:["They're longer","Decode rereads the whole cache for EVERY token: memory bandwidth","The model gets tired","The API rounds up"], a:1, why:"Prefill = all at once. Decode = one word at a time, rereading the archive every time."},
+{q:"Cache hits are discounted up to 10x because…", opts:["The shared prefix is already compiled: no new prefill","The provider is generous","They're shorter tokens","They're served from CPU"], a:0, why:"The prefix's K/V compiled once, reused by all requests."},
+{q:"A timestamp as the FIRST line of the system prompt…", opts:["Improves answers","Changes nothing","Destroys the prefix cache on every call","Reduces latency"], a:2, why:"A single different token at the start invalidates all the cache after it."},
+{q:"DeepSeek's MLA attacks the formula by…", opts:["Removing layers","Caching a single compressed vector from which K and V are reconstructed","Using faster disks","Doubling the heads"], a:1, why:"It trades a bit of extra compute to crush the 2 × heads × head dim block."},
+{q:"A 'hello' in context on a 70B with GQA occupies about…", opts:["5 bytes","3 KB","320 KB","2 GB"], a:2, why:"~60,000x amplification: K+V vectors on every archive of every layer."},
+{q:"I double the layers AND double the context: total cache goes…", opts:["+4","×2","×4","Stays the same"], a:2, why:"Independent factors multiply: 2 × 2 = 4. It's a volume, not a sum."},
+{q:"Prefill is…", opts:["Writing the answer, one word at a time","Reading your message, all at once (the wait before the first word)","The training phase","Weight quantization"], a:1, why:"Prefill = read the message in one shot and fill the archive. Decode = write word by word."},
+{q:"In cache quantization, empirically…", opts:["K tolerates less compression than V","V tolerates less compression than K","They're identical","Neither can be compressed"], a:0, why:"K does the matching: degrading it confuses the search. V is just blended content: it forgives more."}]}
+}
+};
+
+/* ============================================================ BUILD */
+let lang = "it", T, LEVELS;
+function build(){
+  T = I18N[lang];
+  const L2 = { type:"quiz", title:T.l2.title, formula:true,
+    qs: L2cfg.map((c,i)=>{ const r=2*c.l*c.k*c.d*c.b;
+      return {q:T.l2.q(T.l2.names[i],c), opts:[r,r/2,r*4,r*10].map(fmtKB), a:0, shuffle:true, why:T.l2.why(c,r)};})};
+  LEVELS = [
+    {type:"quiz", title:T.l1.title, qs:T.l1.qs},
+    L2,
+    {type:"sim"},
+    {type:"order"},
+    {type:"quiz", title:T.l5.title, qs:T.l5.qs},
+    {type:"quiz", title:T.boss.title, qs:T.boss.qs, timed:12}
+  ];
+  document.getElementById("h-kick").textContent = T.ui.kick.replace(/<[^>]*>/g,"");
+  document.getElementById("h-kick").innerHTML = T.ui.kick;
+  document.getElementById("h-title").innerHTML = T.ui.title;
+  document.getElementById("h-sub").textContent = T.ui.sub;
+  document.getElementById("foot").textContent = T.ui.foot;
+  document.getElementById("hud-pts-l").textContent = T.ui.pts;
+  document.documentElement.lang = lang;
+  const lb=document.getElementById("langs"); lb.innerHTML="";
+  Object.keys(I18N).forEach(l=>{
+    const b=document.createElement("button"); b.textContent=l.toUpperCase();
+    b.className = l===lang?"on":""; b.onclick=()=>setLang(l); lb.appendChild(b);
+  });
+}
+function setLang(l){ if(l===lang) return; lang=l; build(); rerender(); }
+function rerender(){
+  if(R.screen==="home") home();
+  else if(R.screen==="gloss") glossario();
+  else if(R.screen==="chapter") chapter(R.i);
+  else if(R.screen==="test"){ const L=LEVELS[R.i];
+    L.type==="quiz" ? quizQ(L,R.q,R.i) : L.type==="sim" ? simRun() : orderRun(); }
+  else finale();
+}
+
+/* ============================================================ HUD */
+function hud(){
+  document.getElementById("hud").hidden = false;
+  document.getElementById("hud-score").textContent = S.score;
+  const st = document.getElementById("hud-streak");
+  st.textContent = S.streak; st.className = S.streak>=3 ? "streak-on" : "";
+  const p = document.getElementById("hud-pages"); p.innerHTML="";
+  LEVELS.forEach((_,i)=>{const el=document.createElement("i");
+    if(i<S.level)el.className="done"; else if(i===S.level)el.className="now"; p.appendChild(el);});
+}
+function award(ok, base=100){
+  S.answered++;
+  if(ok){ S.correct++; S.streak++; S.maxStreak=Math.max(S.maxStreak,S.streak);
+    S.score += Math.round(base*(1+S.streak*0.15)); }
+  else S.streak=0;
+  hud();
+}
+
+/* ============================================================ SCREENS */
+function home(){
+  R={screen:"home"};
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.homeEyebrow}</div>
+    <div class="headline">${T.ui.homeTitle}</div>
+    <p class="lede">${T.ui.homeLede}</p>
+    <button class="btn" onclick="chapter(-1)">${T.ui.start}</button>
+    <button class="btn ghost" onclick="glossario()" style="margin-left:10px">${T.ui.glossBtn}</button>`;
+  hud();
+}
+
+function glossario(){
+  R={screen:"gloss"};
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.glossBtn}</div>
+    <div class="headline">${T.ui.glossTitle}</div>
+    <div class="gloss">${T.gloss.map(g=>`<div class="g"><b>${g[0]}</b>${g[1]}</div>`).join("")}</div>
+    <div class="next-row"><button class="btn" onclick="chapter(-1)">${T.ui.start}</button><button class="btn ghost" onclick="home()">${T.ui.back}</button></div>`;
+  hud();
+}
+
+function chapter(i){
+  R={screen:"chapter", i};
+  const c = i<0 ? T.ch0 : T.ch[i];
+  if(i>=0){ S.level=i; }
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.chLbl} ${i<0?0:i+1}</div>
+    <div class="headline">${c.title}</div>
+    <div class="lesson">${c.body}</div>
+    <div class="next-row">
+      <button class="btn" id="go">${i<0?T.ui.goCh1:T.ui.goTest}</button>
+      ${i>=0?`<button class="btn ghost" onclick="glossario()">${T.ui.glossBtn}</button>`:""}
+    </div>`;
+  document.getElementById("go").onclick = ()=> i<0 ? chapter(0) : startTest(i);
+  hud();
+  window.scrollTo({top:0});
+}
+
+function startTest(i){
+  S.level=i; hud();
+  const L=LEVELS[i];
+  if(L.type==="quiz") quizQ(L,0,i);
+  else if(L.type==="sim") simRun();
+  else orderRun();
+}
+function nextLevel(){ S.level+1<LEVELS.length ? chapter(S.level+1) : finale(); }
+
+let bossTimer=null;
+function quizQ(L,i,lvl){
+  R={screen:"test", i:lvl, q:i};
+  clearTimeout(bossTimer);
+  const q=L.qs[i];
+  let order=q.opts.map((_,j)=>j);
+  if(q.shuffle){ order.sort(()=>Math.random()-.5); }
+  const tags="ABCD";
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.testLbl} ${lvl+1} — ${L.title}</div>
+    ${L.formula?`<div class="formula-card">${T.ui.formula}</div>`:""}
+    ${L.timed?`<div class="timer"><i id="tbar" class="run"></i></div>`:""}
+    <div class="q-count">${T.ui.question} ${i+1} ${T.ui.of} ${L.qs.length}</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="opts">${order.map((oi,k)=>`<button class="opt" data-oi="${oi}"><span class="tag">${tags[k]}</span><span>${q.opts[oi]}</span></button>`).join("")}</div>
+    <div id="after"></div>`;
+  const lock = (chosenBtn, timeout)=>{
+    const btns=[...document.querySelectorAll(".opt")];
+    btns.forEach(b=>b.disabled=true);
+    const ok = chosenBtn && +chosenBtn.dataset.oi===q.a;
+    btns.forEach(b=>{ if(+b.dataset.oi===q.a) b.classList.add("right"); });
+    if(chosenBtn && !ok) chosenBtn.classList.add("wrong");
+    award(ok, L.timed?150:100);
+    document.getElementById("after").innerHTML =
+      `<div class="explain"><b class="${ok?"ok":"ko"}">${ok?T.ui.correct:timeout?T.ui.timeUp:T.ui.wrong}</b>${q.why}</div>
+       <div class="next-row"><button class="btn" id="nx">${i+1<L.qs.length?T.ui.next:T.ui.nextCh}</button></div>`;
+    document.getElementById("nx").onclick=()=> i+1<L.qs.length ? quizQ(L,i+1,lvl) : nextLevel();
+    document.getElementById("nx").focus();
+  };
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>lock(b,false));
+  if(L.timed){
+    const bar=document.getElementById("tbar");
+    requestAnimationFrame(()=>{bar.style.transitionDuration=L.timed+"s"; bar.style.width="0%";});
+    bossTimer=setTimeout(()=>lock(null,true), L.timed*1000);
+  }
+}
+
+/* ---------- sim ---------- */
+const SIM={k:8,d:128,c:2,w:2};
+function seg(id,label,vals,names,cur){
+  return `<label>${label}</label><div class="seg" id="${id}">${vals.map((v,i)=>`<button data-v="${v}" class="${v===cur?"on":""}">${names[i]}</button>`).join("")}</div>`;
+}
+function simRun(){
+  R={screen:"test", i:2, q:0};
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.simEyebrow}</div>
+    <div class="sim">
+      <div class="sim-goal">${T.ui.simGoal}</div>
+      <div class="ctrl">
+        ${seg("sk",T.ui.simKV,[1,2,4,8],["1 (MQA)","2","4","8"],SIM.k)}
+        ${seg("sd",T.ui.simHD,[64,96,128],["64","96","128"],SIM.d)}
+        ${seg("sc",T.ui.simC,[2,1,0.5],["FP16","FP8","INT4"],SIM.c)}
+        ${seg("sw",T.ui.simW,[2,1,0.5],["FP16","INT8","INT4"],SIM.w)}
+      </div>
+      <div class="vbar"><div class="w" id="bw"></div><div class="c" id="bc"></div></div>
+      <div class="vbar-leg">${T.ui.simLeg} <i style="background:var(--acc)"></i> ${T.ui.simLegW} <i style="background:var(--warn)"></i> ${T.ui.simLegC}</div>
+      <div class="readout">
+        <div class="r"><span>${T.ui.simRT}</span><b id="rt">—</b></div>
+        <div class="r" id="rc-w"><span>${T.ui.simRC}</span><b id="rc">—</b></div>
+        <div class="r" id="rq-w"><span>${T.ui.simRQ}</span><b id="rq">—</b></div>
+      </div>
+      <div id="after"><button class="btn" id="ship">${T.ui.simShip}</button></div>
+    </div>`;
+  const upd=()=>{
+    const ptok=2*32*SIM.k*SIM.d*SIM.c;
+    const wGB=8*SIM.w, free=24-wGB;
+    const maxc=free>0?Math.floor(free*1e9/ptok):0;
+    const q=(SIM.k>=4?2:SIM.k>=2?1:0)+(SIM.c>=1?1:0)+(SIM.d>=128?1:0)+(SIM.w>=1?1:0)+(SIM.c>=2?1:0);
+    document.getElementById("rt").textContent=fmtKB(ptok);
+    document.getElementById("rc").textContent=fmtTok(maxc);
+    document.getElementById("rq").textContent=q+"/6";
+    document.getElementById("rc-w").className="r "+(maxc>=128000?"ok":"ko");
+    document.getElementById("rq-w").className="r "+(q>=3?"ok":"ko");
+    const cacheGB=ptok*128000/1e9;
+    document.getElementById("bw").style.width=Math.min(100,wGB/24*100)+"%";
+    document.getElementById("bc").style.width=Math.max(0,Math.min(100-wGB/24*100,cacheGB/24*100))+"%";
+    return {maxc,q};
+  };
+  ["sk","sd","sc","sw"].forEach((id,ix)=>{
+    document.getElementById(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const key=["k","d","c","w"][ix]; SIM[key]=+b.dataset.v;
+      document.getElementById(id).querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+      upd();
+    });
+  });
+  upd();
+  document.getElementById("ship").onclick=()=>{
+    const {maxc,q}=upd();
+    const win = maxc>=128000 && q>=3;
+    award(win,300);
+    document.getElementById("after").innerHTML =
+      `<div class="explain"><b class="${win?"ok":"ko"}">${win?T.ui.simWin:T.ui.simLose}</b>${
+        win?T.ui.simWinTxt : maxc<128000?T.ui.simNoCtx : T.ui.simNoQ}</div>
+      <div class="next-row"><button class="btn" id="nx">${win?T.ui.nextCh:T.ui.retry}</button></div>`;
+    document.getElementById("nx").onclick=()=> win?nextLevel():simRun();
+  };
+}
+
+/* ---------- order ---------- */
+function orderRun(){
+  R={screen:"test", i:3, q:0};
+  let next=0, errs=0;
+  const blocks = T.l4.map((t,pos)=>({t,pos}));
+  const shuffled=[...blocks].sort(()=>Math.random()-.5);
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.ordEyebrow}</div>
+    <div class="q-count">${T.ui.ordHint}</div>
+    <div class="order-line" id="line"></div>
+    <div class="order-pool" id="pool">${shuffled.map(b=>`<button class="chip" data-pos="${b.pos}">${b.t}</button>`).join("")}</div>
+    <div id="after"></div>`;
+  document.querySelectorAll("#pool .chip").forEach(ch=>ch.onclick=()=>{
+    if(+ch.dataset.pos===next){
+      ch.classList.add("placed"); ch.disabled=true;
+      document.getElementById("line").appendChild(ch); next++;
+      if(next===blocks.length){
+        const perfect=errs===0;
+        award(true, perfect?300:Math.max(80,300-errs*60));
+        document.getElementById("after").innerHTML =
+          `<div class="explain"><b class="ok">${perfect?T.ui.ordPerfect:T.ui.ordDone(errs)}</b>${T.ui.ordWhy}</div>
+           <div class="next-row"><button class="btn" id="nx">${T.ui.nextCh}</button></div>`;
+        document.getElementById("nx").onclick=nextLevel;
+      }
+    } else {
+      errs++; ch.classList.remove("err"); void ch.offsetWidth; ch.classList.add("err");
+    }
+  });
+}
+
+/* ---------- finale ---------- */
+function rank(){
+  const max=LEVELS.reduce((t,L)=>t+(L.qs?L.qs.length*(L.timed?150:100)*1.6:300*1.6),0);
+  const pct=S.score/max;
+  const i = pct>=0.82?0 : pct>=0.62?1 : pct>=0.42?2 : pct>=0.22?3 : 4;
+  return T.ui.ranks[i];
+}
+function finale(){
+  R={screen:"final"};
+  S.level=LEVELS.length; hud();
+  const [r,motto]=rank();
+  const acc=S.answered?Math.round(S.correct/S.answered*100):0;
+  stage.innerHTML = `
+    <div class="final">
+      <div class="badge"><b>${r}</b><span>MODULE 1</span></div>
+      <h2>${T.ui.grade}: ${r}</h2>
+      <p class="motto">${motto}</p>
+      <div class="f-stats">
+        <div class="s"><span>${T.ui.score}</span><b>${S.score}</b></div>
+        <div class="s"><span>${T.ui.acc}</span><b>${acc}%</b></div>
+        <div class="s"><span>${T.ui.maxStreak}</span><b>${S.maxStreak}</b></div>
+      </div>
+      <div class="f-formula">${T.ui.fFormula}</div>
+      <div class="share-row">
+        <button class="btn" id="copy">${T.ui.copyBtn}</button>
+        <button class="btn ghost" id="again">${T.ui.again}</button>
+        <span class="toast" id="toast"></span>
+      </div>
+    </div>`;
+  document.getElementById("again").onclick=()=>{Object.assign(S,{score:0,streak:0,maxStreak:0,correct:0,answered:0,level:0});home();};
+  document.getElementById("copy").onclick=()=>{
+    const txt=T.ui.share(r,S.score,acc);
+    navigator.clipboard.writeText(txt).then(()=>{document.getElementById("toast").textContent=T.ui.copied;})
+      .catch(()=>{document.getElementById("toast").textContent=T.ui.copyFail;});
+  };
+}
+
+build();
+home();
+</script>
+</body>
+</html>
