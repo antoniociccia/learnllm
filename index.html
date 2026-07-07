@@ -156,6 +156,7 @@ foot:"Capitoli + test · token · attention · KV cache · GQA · prefix caching
 homeEyebrow:"Modulo 1 di una serie", homeTitle:"Come funziona (davvero) un LLM",
 homeLede:`Questo è il <b>primo modulo</b> del corso: la meccanica dell'inferenza. Sei capitoli, dalle basi assolute alla pratica: <b>token e pesi</b>, <b>l'attention (Q, K, V)</b>, <b>la formula della memoria</b>, il <b>budget VRAM</b>, il <b>prefix caching</b> e le <b>eviction policy</b>. Ogni capitolo si legge in 2-3 minuti e finisce con un test a punti: risposte giuste di fila moltiplicano il punteggio. Alla fine ricevi il tuo grado. <span style="color:var(--soft)">Prossimi moduli: memoria e RAG, agenti, training.</span>`,
 start:"Inizia dal capitolo 0", glossBtn:"Glossario", back:"Indietro", goCh1:"Vai al capitolo 1", goTest:"Vai al test",
+skipTest:"Solo lettura → capitolo successivo", module2:"Modulo 2: Memoria e RAG →",
 chLbl:"Capitolo", testLbl:"Test", question:"Domanda", of:"di", next:"Prossima", nextCh:"Capitolo successivo",
 correct:"Corretto", wrong:"Sbagliato", timeUp:"Tempo scaduto", retry:"Riprova",
 glossTitle:"Le 10 parole del corso",
@@ -320,6 +321,7 @@ foot:"Chapters + tests · tokens · attention · KV cache · GQA · prefix cachi
 homeEyebrow:"Module 1 of a series", homeTitle:"How an LLM (really) works",
 homeLede:`This is the <b>first module</b> of the course: the mechanics of inference. Six chapters, from absolute basics to hands-on practice: <b>tokens and weights</b>, <b>attention (Q, K, V)</b>, <b>the memory formula</b>, the <b>VRAM budget</b>, <b>prefix caching</b> and <b>eviction policies</b>. Each chapter takes 2-3 minutes and ends with a scored test: consecutive correct answers multiply your points. At the end you get your rank. <span style="color:var(--soft)">Upcoming modules: memory and RAG, agents, training.</span>`,
 start:"Start from chapter 0", glossBtn:"Glossary", back:"Back", goCh1:"Go to chapter 1", goTest:"Take the test",
+skipTest:"Read-only → next chapter", module2:"Module 2: Memory & RAG →",
 chLbl:"Chapter", testLbl:"Test", question:"Question", of:"of", next:"Next", nextCh:"Next chapter",
 correct:"Correct", wrong:"Wrong", timeUp:"Time's up", retry:"Try again",
 glossTitle:"The 10 words of the course",
@@ -543,7 +545,8 @@ function home(){
     <div class="headline">${T.ui.homeTitle}</div>
     <p class="lede">${T.ui.homeLede}</p>
     <button class="btn" onclick="chapter(-1)">${T.ui.start}</button>
-    <button class="btn ghost" onclick="glossario()" style="margin-left:10px">${T.ui.glossBtn}</button>`;
+    <button class="btn ghost" onclick="glossario()" style="margin-left:10px">${T.ui.glossBtn}</button>
+    <div style="margin-top:16px"><a class="btn ghost" href="./modulo2/">${T.ui.module2}</a></div>`;
   hud();
 }
 
@@ -567,12 +570,14 @@ function chapter(i){
     <div class="lesson">${c.body}</div>
     <div class="next-row">
       <button class="btn" id="go">${i<0?T.ui.goCh1:T.ui.goTest}</button>
-      ${i>=0?`<button class="btn ghost" onclick="glossario()">${T.ui.glossBtn}</button>`:""}
+      ${i>=0?`<button class="btn ghost" id="skip">${T.ui.skipTest}</button><button class="btn ghost" onclick="glossario()">${T.ui.glossBtn}</button>`:""}
     </div>`;
   document.getElementById("go").onclick = ()=> i<0 ? chapter(0) : startTest(i);
+  if(i>=0) document.getElementById("skip").onclick = ()=> skipToNext(i);
   hud();
   window.scrollTo({top:0});
 }
+function skipToNext(i){ i+1<T.ch.length ? chapter(i+1) : home(); }
 
 function startTest(i){
   S.level=i; hud();

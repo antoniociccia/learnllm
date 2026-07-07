@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corso LLM · Modulo 2 — Memoria e RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAFAF8; --card:#FFFFFF; --ink:#1E2229; --soft:#5A6070; --line:#DDDFDA;
+  --acc:#5B4FD6; --acc-soft:#EDEBFB; --ok:#2E7D4F; --ok-soft:#E4F0E8;
+  --ko:#C0392B; --ko-soft:#F7E4E1; --warn:#D99A1B; --warn-soft:#FBF1DC;
+  --disp:'Space Grotesk',sans-serif; --sans:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:#EEEEEA}
+body{font-family:var(--sans);color:var(--ink);background:var(--bg);max-width:820px;margin:0 auto;min-height:100vh;font-size:16px;line-height:1.6}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.wrap{padding:0 clamp(16px,4vw,44px) 56px}
+.top{padding:30px 0 16px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.top h1{font-family:var(--disp);font-weight:700;font-size:clamp(26px,5vw,40px);line-height:1}
+.top h1 span{color:var(--acc)}
+.top .kick{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin-bottom:4px}
+.top .sub{font-family:var(--mono);font-size:12px;color:var(--soft)}
+.langs{display:flex;gap:6px}
+.langs button{border:1.5px solid var(--line);border-radius:8px;background:var(--card);padding:6px 12px;font-family:var(--mono);font-size:12px}
+.langs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:10px 0;font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+.hud .cell b{font-size:16px;font-weight:600}
+.hud .streak-on{color:var(--acc)}
+.lvls{display:flex;gap:6px}
+.lvls i{width:24px;height:6px;border-radius:3px;background:var(--line)}
+.lvls i.done{background:var(--ink)}
+.lvls i.now{background:var(--acc)}
+.stage{padding-top:26px;min-height:420px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:8px}
+.headline{font-family:var(--disp);font-weight:700;font-size:clamp(23px,4.2vw,33px);line-height:1.15;margin-bottom:10px}
+.lede{color:var(--soft);max-width:62ch;margin-bottom:22px}
+.lede b{color:var(--ink)}
+.btn{display:inline-block;background:var(--ink);color:#fff;border:none;border-radius:10px;padding:13px 26px;font-family:var(--disp);font-weight:600;font-size:15px}
+.btn:hover{background:var(--acc)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.btn.ghost:hover{background:var(--acc-soft)}
+.lesson{max-width:680px}
+.lesson h3{font-family:var(--disp);font-weight:600;font-size:19px;margin:26px 0 8px}
+.lesson h3:first-child{margin-top:0}
+.lesson p{margin-bottom:12px}
+.lesson b{font-weight:600}
+.lesson .ex{font-family:var(--mono);font-size:13.5px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin:12px 0;overflow-x:auto}
+.lesson .key{background:var(--acc-soft);border-radius:10px;padding:12px 15px;margin:14px 0;font-size:15px}
+.lesson .key b{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--acc);display:block;margin-bottom:3px}
+.lesson .warn{background:var(--warn-soft);border-radius:10px;padding:12px 15px;margin:14px 0;font-size:15px}
+.lesson .warn b{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--warn);display:block;margin-bottom:3px}
+.q-count{font-family:var(--mono);font-size:12px;color:var(--soft);margin-bottom:6px}
+.question{font-family:var(--disp);font-weight:600;font-size:clamp(18px,2.9vw,23px);line-height:1.3;margin-bottom:18px;max-width:64ch}
+.options{display:grid;gap:10px;max-width:680px}
+.opt{text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:13px 16px;font-size:15.5px;line-height:1.4;display:flex;gap:12px;align-items:baseline}
+.opt .tag{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--soft);flex:none}
+.opt:hover{border-color:var(--acc);background:var(--acc-soft)}
+.opt.right{background:var(--ok-soft);border-color:var(--ok)}
+.opt.wrong{background:var(--ko-soft);border-color:var(--ko)}
+.opt:disabled{cursor:default}
+.explain{margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--acc-soft);max-width:680px;font-size:14.5px}
+.explain b{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:4px}
+.explain b.ok{color:var(--ok)} .explain b.ko{color:var(--ko)}
+.next-row{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+.mono{font-family:var(--mono)}
+.order-pool,.order-line{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;min-height:52px}
+.order-line{border:2px dashed var(--line);border-radius:12px;padding:10px;background:var(--card)}
+.chip{border:1.5px solid var(--ink);border-radius:10px;background:var(--card);padding:10px 14px;font-family:var(--mono);font-size:13px}
+.chip:hover{background:var(--acc-soft)}
+.chip.placed{background:var(--ink);color:#fff;cursor:default}
+.chip.err{animation:shake .3s;border-color:var(--ko);color:var(--ko)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion: reduce){.chip.err{animation:none}}
+.timer{height:8px;border-radius:4px;background:var(--line);margin-bottom:18px;max-width:680px;overflow:hidden}
+.timer i{display:block;height:100%;background:var(--ko);width:100%}
+@media (prefers-reduced-motion: no-preference){.timer i.run{transition:width linear}}
+.final{border:2px solid var(--ink);border-radius:16px;background:var(--card);padding:clamp(20px,4vw,36px);margin-top:8px;text-align:center}
+.badge{width:150px;height:150px;border-radius:50%;background:var(--acc-soft);border:3px solid var(--acc);margin:0 auto 16px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.badge b{font-family:var(--disp);font-weight:700;font-size:17px;line-height:1.15;color:var(--acc);padding:0 14px}
+.badge span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--soft);margin-top:4px}
+.final h2{font-family:var(--disp);font-weight:700;font-size:clamp(24px,4.6vw,34px);margin-bottom:8px}
+.final .motto{color:var(--soft);max-width:52ch;margin:0 auto 18px}
+.f-stats{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:18px;margin-top:6px}
+.f-stats .s span{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);display:block}
+.f-stats .s b{font-family:var(--mono);font-size:24px;font-weight:600}
+.f-formula{font-family:var(--mono);font-size:12.5px;color:var(--soft);margin-top:16px}
+.share-row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;justify-content:center}
+.toast{font-family:var(--mono);font-size:12px;color:var(--ok);align-self:center}
+.footer-note{font-family:var(--mono);font-size:11px;color:var(--soft);border-top:1px solid var(--line);margin-top:40px;padding-top:12px;text-align:center}
+.gloss{display:grid;gap:10px;max-width:700px;margin-bottom:8px}
+.gloss .g{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 15px;font-size:14.5px;line-height:1.5}
+.gloss .g b{font-family:var(--mono);font-size:13px;color:var(--acc);display:block;margin-bottom:2px}
+.gloss .g u{text-decoration:none;border-bottom:2px solid var(--acc-soft);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="kick" id="h-kick"></div>
+      <h1 id="h-title"></h1>
+      <div class="sub" id="h-sub"></div>
+    </div>
+    <div class="langs" id="langs"></div>
+  </header>
+  <div class="hud" id="hud" hidden>
+    <div class="cell"><span id="hud-pts-l"></span> <b id="hud-score">0</b></div>
+    <div class="cell">Streak <b id="hud-streak">0</b></div>
+    <div class="lvls" id="hud-pages"></div>
+  </div>
+  <main class="stage" id="stage" aria-live="polite"></main>
+  <div class="footer-note" id="foot"></div>
+</div>
+
+<script>
+"use strict";
+const S = { score:0, streak:0, maxStreak:0, correct:0, answered:0, level:0 };
+let R = { screen:"home", i:0, q:0 };
+const stage = document.getElementById("stage");
+
+/* ============================================================ I18N */
+const I18N = {
+/* ---------------------------------------------------------------- IT */
+it: {
+ui:{kick:"Corso LLM · Modulo 2", title:"Memoria <span>e RAG</span>", sub:"Come un LLM ricorda (o finge di ricordare) — dai pesi al retrieval",
+foot:"Capitoli + test · tipi di memoria · context window · embedding · chunking · retrieval · RAG", pts:"Punti",
+homeEyebrow:"Modulo 2 di una serie", homeTitle:"Come un LLM ricorda (o finge di ricordare)",
+homeLede:`Questo è il <b>secondo modulo</b> del corso. Nel <a href="../">Modulo 1</a> hai visto come un LLM genera testo parola per parola e cos'è la KV cache. Qui vedi <b>da dove viene ciò che il modello "sa"</b>: i <b>tipi di memoria</b> (pesi, contesto, memoria esterna, memoria conversazionale), i limiti della <b>context window</b>, e come funziona il <b>RAG</b> — <b>embedding</b>, <b>chunking</b>, <b>retrieval</b> e <b>reranking</b>. Sei capitoli, 2-3 minuti l'uno, con test a punti finali.`,
+start:"Inizia dal capitolo 0", glossBtn:"Glossario", back:"Indietro", goCh1:"Vai al capitolo 1", goTest:"Vai al test",
+skipTest:"Solo lettura → capitolo successivo", module1:"← Modulo 1: Dentro l'inferenza",
+chLbl:"Capitolo", testLbl:"Test", question:"Domanda", of:"di", next:"Prossima", nextCh:"Capitolo successivo",
+correct:"Corretto", wrong:"Sbagliato", timeUp:"Tempo scaduto", retry:"Riprova",
+glossTitle:"Le 10 parole del modulo",
+ordEyebrow:"Test 3 — Ordina la pipeline RAG", ordHint:"Clicca i blocchi in ordine: dalla domanda dell'utente alla risposta generata",
+ordPerfect:"Ordine perfetto", ordDone:e=>`Completato (${e} error${e===1?"e":"i"})`,
+ordWhy:"La domanda va trasformata in vettore PRIMA di poter essere confrontata con i documenti già indicizzati (anch'essi vettori). Solo dopo aver trovato i chunk più simili questi possono essere iniettati nel prompt: il modello non genera nulla finché non ha in mano sia la domanda sia il materiale recuperato.",
+grade:"Grado", score:"Punteggio", acc:"Precisione", maxStreak:"Streak max",
+copyBtn:"Copia post per LinkedIn", again:"Rigioca", copied:"Copiato ✓", copyFail:"Copia manuale: seleziona il testo",
+share:(r,s,a)=>`Ho completato il Modulo 2 del corso "Memoria e RAG" — un corso-gioco sulla meccanica interna degli LLM.\n\nGrado: ${r} (punteggio ${s}, precisione ${a}%).\n\nCosa si impara: i quattro tipi di memoria di un LLM (pesi, context window, memoria esterna, memoria conversazionale), perché la finestra di contesto ha un limite e cosa significa "lost in the middle", e come funziona il RAG — embedding, chunking, similarity search e reranking — per dare a un modello conoscenza fresca senza riaddestrarlo.\n\n#LLM #AI #RAG #embedding #formazione`,
+fFormula:"query → embedding → similarity search → rerank → contesto → generazione",
+ranks:[["Guru","Il RAG non ha più segreti: sai perché il retrieval batte sia il fine-tuning continuo sia l'incollare tutto nel contesto."],["Maestro","Quasi perfetto. Ripassa chunking e retrieval e il titolo di Guru è tuo."],["Esperto","Le basi sono solide: distingui bene i tipi di memoria. Rivedi chunking e reranking."],["Apprendista","Buon inizio: rileggi i capitoli 2 e 3 e riprova."],["Novizio","Rigioca: al secondo giro cambia tutto."]]},
+gloss:[
+["Memoria parametrica","Il sapere congelato nei <u>pesi</u> del modello, fissato durante l'addestramento. Per cambiarlo serve un nuovo addestramento (fine-tuning)."],
+["Context window","Lo spazio totale di token che il modello può vedere in una richiesta: <u>system prompt + storico + documenti recuperati + domanda</u>."],
+["Working memory","Altro nome per la context window: memoria di <u>lavoro</u>, temporanea, valida solo per la richiesta in corso."],
+["RAG","<u>Retrieval-Augmented Generation</u>: recupera solo le informazioni rilevanti da una base esterna e le inietta nel contesto, invece di riaddestrare il modello o incollare tutto."],
+["Embedding","Rappresentazione numerica (<u>vettore</u>) del significato di un testo: testi con significato simile hanno vettori vicini tra loro."],
+["Vector DB","Database specializzato nel salvare embedding e <u>cercare rapidamente</u> quelli più simili a un vettore dato."],
+["Chunking","Il taglio di un documento in pezzi (<u>chunk</u>) più piccoli prima di calcolarne gli embedding, per non annacquarne il significato."],
+["Retrieval","La fase di ricerca: dato l'embedding della domanda, trovare i chunk più simili nel vector DB (<u>similarity search</u>)."],
+["Reranking","Un secondo passaggio, più preciso ma più lento, che <u>riordina</u> i pochi chunk trovati dalla ricerca iniziale prima di usarli."],
+["Memoria conversazionale","Riassunti o note salvate <u>tra una sessione e l'altra</u>, per dare l'impressione che il sistema ricordi conversazioni passate."]],
+ch0:{title:"Perché un LLM ha bisogno di 'memoria' esterna", body:`
+<h3>Il modello non ricorda: rilegge</h3>
+<p>Nel Modulo 1 hai visto che un LLM genera testo una parola alla volta, guardando tutto ciò che ha nella <b>context window</b>. Ma appena la conversazione finisce, quella finestra si svuota: il modello non ha un "diario" dove annota cosa gli hai detto ieri. Ogni richiesta riparte, di fatto, da zero — a meno che qualcuno non gli rimetta in mano le informazioni giuste.</p>
+<h3>I pesi sanno tutto? No</h3>
+<p>I <b>pesi</b> (Modulo 1) contengono un sapere generale, appreso durante l'addestramento e poi <b>congelato</b>. Sanno che Parigi è la capitale della Francia, ma non sanno cosa hai scritto nella mail di ieri, né cosa dice il manuale interno aggiornato la settimana scorsa: quell'informazione non esisteva (o non era rilevante) durante l'addestramento.</p>
+<h3>Due strade sbagliate</h3>
+<p>Per dare al modello informazioni fresche o specifiche, due strade sembrano ovvie e sono quasi sempre sbagliate: <b>riaddestrare</b> il modello ogni volta che qualcosa cambia (costosissimo, lento, va rifatto ad ogni aggiornamento), oppure <b>incollare tutto</b> il materiale disponibile nella context window ad ogni domanda (la finestra ha un limite di token, e più cresce più costa in tempo e VRAM, come visto nel Modulo 1).</p>
+<div class="key"><b>Da portare a casa</b>Un LLM non ha una memoria persistente automatica: ha pesi congelati e una finestra di contesto temporanea. Tutto il resto — ricordare fatti freschi, conversazioni passate, documenti specifici — va costruito sopra, con sistemi esterni.</div>
+<p>Questo modulo mappa questi sistemi: che tipi di memoria esistono, come funziona il più diffuso (il RAG), e quali sono i suoi ingranaggi — embedding, chunking, retrieval.</p>`},
+ch:[
+{title:"I quattro tipi di memoria", body:`
+<h3>Non esiste "la" memoria di un LLM: ne esistono quattro</h3>
+<p>Quando un sistema come ChatGPT o Claude sembra "ricordare" qualcosa, sta in realtà usando uno (o più) di questi meccanismi, molto diversi tra loro:</p>
+<h3>1. Memoria parametrica</h3>
+<p>Il sapere <b>congelato nei pesi</b> del modello: grammatica, fatti generali, capacità di ragionamento. Appreso una volta, in addestramento. Per cambiarlo serve fine-tuning: costoso, lento, non pensato per aggiornamenti frequenti.</p>
+<h3>2. Memoria di contesto (working memory)</h3>
+<p>La <b>context window</b> della richiesta corrente: system prompt, storico della chat, documenti eventualmente allegati, la domanda. Vive solo per la durata della richiesta — è potente ma <b>temporanea</b> e limitata in dimensione.</p>
+<h3>3. Memoria esterna (RAG)</h3>
+<p>Una base di conoscenza <b>fuori dal modello</b> (documenti, database, wiki aziendale) consultata al bisogno: si recupera solo ciò che serve e lo si inserisce nella context window di quella specifica richiesta. Aggiornabile in ogni momento, senza toccare i pesi.</p>
+<h3>4. Memoria conversazionale</h3>
+<p>Riassunti, preferenze o note salvate <b>tra una sessione e l'altra</b> (es. "l'utente preferisce risposte brevi", "stava lavorando al progetto X"). Non è nei pesi né nella context window della chat attuale: è un sistema a parte che scrive e ri-inietta informazioni nelle conversazioni future.</p>
+<div class="ex">Pesi → cosa il modello SA in generale (fisso)
+Context window → cosa il modello VEDE ora (temporaneo)
+RAG → cosa il modello PUÒ ANDARE A CERCARE (esterno, aggiornabile)
+Memoria conversazionale → cosa il sistema RICORDA di te tra le sessioni</div>
+<div class="key"><b>Da portare a casa</b>Quando senti dire che un LLM "ha imparato" o "si ricorda" qualcosa, chiediti sempre: pesi, contesto, RAG o memoria conversazionale? Sono quattro meccanismi diversi, con costi e limiti diversi.</div>`},
+{title:"La finestra di contesto: quanto puoi ricordare adesso", body:`
+<h3>Tutto deve stare in un unico spazio</h3>
+<p>La <b>context window</b> è lo spazio totale di token che il modello può "vedere" in una singola richiesta. Dentro ci deve stare tutto insieme: le istruzioni di sistema, lo storico della conversazione, gli eventuali documenti recuperati, e infine la domanda dell'utente. Se lo spazio non basta, qualcosa va tagliato o riassunto.</p>
+<h3>Più contesto, più costo</h3>
+<p>Nel Modulo 1 hai visto che ogni token in contesto crea nuove voci nella <b>KV cache</b>, che deve stare in VRAM insieme ai pesi. Una context window più lunga non è "gratis": costa più memoria e più tempo, perché ad ogni parola generata il modello rilegge l'intero archivio.</p>
+<h3>Lost in the middle</h3>
+<p>C'è un problema più sottile: con contesti molto lunghi, i modelli tendono a prestare più attenzione a ciò che sta all'<b>inizio</b> e alla <b>fine</b> del contesto, trascurando relativamente le informazioni sepolte <b>nel mezzo</b>. Questo fenomeno si chiama <b>"lost in the middle"</b>.</p>
+<div class="warn"><b>Perché conta</b>Riempire la context window di materiale non filtrato non è solo costoso: può anche peggiorare le risposte, perché l'informazione utile rischia di finire proprio nella zona "cieca" del mezzo.</div>
+<p>Conclusione pratica: la context window va trattata come una risorsa <b>scarsa e pregiata</b>, da riempire con cura — non come un contenitore infinito dove buttare tutto. È esattamente il problema che il prossimo capitolo affronta.</p>`},
+{title:"RAG: recuperare invece di ricordare tutto", body:`
+<h3>L'idea centrale</h3>
+<p>Il <b>RAG</b> (Retrieval-Augmented Generation) parte da un'osservazione semplice: invece di far imparare tutto al modello (fine-tuning, lento e costoso) o di incollare tutto nel contesto (limite di token, costo, "lost in the middle"), si può <b>recuperare al volo solo ciò che serve</b> per rispondere a QUESTA domanda specifica, e inserirlo nella context window solo per questa richiesta.</p>
+<h3>Il problema: come "cercare per significato"</h3>
+<p>Una ricerca per parole chiave non basta: se l'utente chiede "come annullo un ordine?" e il manuale dice "procedura di reso e cancellazione", le parole non combaciano ma il significato sì. Serve un modo per confrontare i <b>significati</b>, non solo le parole.</p>
+<h3>Embedding: il significato come vettore</h3>
+<p>Un <b>embedding</b> è una lista di numeri (un vettore) che rappresenta il significato di un testo. Testi con significato simile producono vettori <b>vicini</b> tra loro nello spazio; testi con significato diverso producono vettori lontani. "Annullare un ordine" e "procedura di cancellazione" finiscono vicini, anche senza parole in comune.</p>
+<div class="ex">testo → modello di embedding → [0.12, -0.87, 0.33, ...] (es. 1536 numeri)
+distanza tra vettori piccola → significato simile
+distanza tra vettori grande → significato diverso</div>
+<h3>Vector DB: l'archivio ricercabile</h3>
+<p>Tutti gli embedding dei documenti vengono salvati in un <b>vector DB</b>, un database pensato apposta per trovare rapidamente, tra milioni di vettori, quelli più vicini a un vettore dato — senza doverli confrontare uno a uno.</p>
+<div class="key"><b>Da portare a casa</b>RAG = trasformare domanda e documenti in vettori (embedding), salvarli in un database ricercabile (vector DB), e recuperare solo i pezzi più vicini di significato alla domanda.</div>`},
+{title:"Chunking: come tagliare i documenti", body:`
+<h3>Perché non si indicizza un libro intero</h3>
+<p>Un embedding riassume il significato di un testo in un unico vettore. Se il testo è troppo lungo ed eterogeneo — un intero manuale, un libro — quel riassunto diventa <b>troppo generico</b>: mischia insieme decine di argomenti diversi e perde la capacità di far emergere una corrispondenza precisa con la domanda dell'utente.</p>
+<h3>La soluzione: chunk</h3>
+<p>Prima di calcolare gli embedding, i documenti vengono tagliati in pezzi più piccoli e omogenei, i <b>chunk</b> (es. qualche centinaio di parole ciascuno). Ogni chunk viene trasformato nel proprio embedding e indicizzato separatamente: così il vector DB può trovare esattamente il paragrafo giusto, non l'intero libro.</p>
+<h3>La taglia giusta è un compromesso</h3>
+<p>Chunk troppo <b>piccoli</b> rischiano di perdere il contesto attorno a un'informazione, rendendola ambigua o incompleta se letta da sola. Chunk troppo <b>grandi</b> tornano al problema di partenza: embedding troppo generici. La dimensione va scelta in base al tipo di contenuto.</p>
+<h3>L'overlap: una rete di sicurezza</h3>
+<p>Se un'informazione chiave cade esattamente al confine tra un chunk e il successivo, rischia di risultare incompleta in entrambi. Per questo si usa spesso l'<b>overlap</b>: una piccola sovrapposizione di testo tra chunk consecutivi, così che ogni informazione compaia per intero in almeno un chunk.</p>
+<div class="ex">Documento lungo → tagliato in chunk da ~300-500 parole
++ overlap di ~50 parole tra un chunk e il successivo
+→ ogni chunk ha il proprio embedding, indicizzato a parte</div>`},
+{title:"Retrieval: cercare per similarità", body:`
+<h3>Il momento della domanda</h3>
+<p>Quando arriva una domanda, anche lei viene trasformata nel suo embedding. Il vector DB confronta quel vettore con tutti i chunk indicizzati e restituisce i <b>top-k</b> più vicini (es. i 5 chunk più simili): questa fase si chiama <b>similarity search</b> o <b>retrieval</b>.</p>
+<h3>Un secondo filtro: il reranking</h3>
+<p>La similarity search iniziale è veloce ma un po' grezza: lavora su milioni di vettori e usa scorciatoie matematiche per essere rapida. Un modello di <b>reranking</b>, più lento ma più preciso, prende i pochi candidati trovati e li <b>riordina</b> con un confronto diretto e più accurato con la domanda, prima di passarli al LLM.</p>
+<h3>Quando le parole esatte contano: hybrid search</h3>
+<p>L'embedding cattura il significato, ma può sfumare le corrispondenze <b>esatte</b>: un codice prodotto come "SKU-2231" e uno come "SKU-2241" possono risultare vettorialmente vicini pur essendo due prodotti diversi. Per questo, molti sistemi affiancano alla ricerca semantica una ricerca tradizionale per <b>parole chiave</b> (es. BM25): questa combinazione si chiama <b>hybrid search</b> ed è utile per codici, nomi propri, ID, numeri di serie.</p>
+<div class="key"><b>Da portare a casa</b>Retrieval = trovare i chunk più simili alla domanda (similarity search), spesso raffinati da un reranking, ed eventualmente affiancati da una ricerca per parole chiave quando la precisione lessicale conta.</div>`},
+{title:"Ricapitolando: la memoria in pratica", body:`
+<h3>Il quadro completo</h3>
+<p>Rimettiamo insieme i pezzi. Un sistema tipo ChatGPT o Claude con RAG, davanti a una domanda, fa più o meno così:</p>
+<div class="ex">1. L'utente fa una domanda
+2. La domanda viene trasformata in un embedding
+3. Il vector DB cerca i chunk di documenti più simili (retrieval)
+4. Un reranking (opzionale) riordina i migliori candidati
+5. I chunk scelti + lo storico + il system prompt entrano nella context window
+6. Il modello genera la risposta usando i pesi (sapere generale) + il contesto ricevuto (sapere specifico)</div>
+<h3>Le quattro memorie, di nuovo</h3>
+<p><b>Pesi</b> = cosa il modello sa in generale, fisso. <b>Context window</b> = cosa vede in questa richiesta, temporaneo e limitato. <b>RAG</b> = cosa può andare a cercare quando serve, esterno e sempre aggiornabile. <b>Memoria conversazionale</b> = cosa il sistema ricorda di te tra una sessione e l'altra, di solito sotto forma di riassunti re-iniettati nel contesto.</p>
+<h3>Perché funziona</h3>
+<p>Nessuna di queste memorie da sola basterebbe: i pesi da soli non sanno nulla di specifico o recente; la sola context window è troppo piccola e costosa per contenere intere basi di conoscenza; la sola memoria conversazionale non copre documenti esterni. Combinate, coprono tre esigenze diverse: sapere generale, contesto immediato, conoscenza esterna aggiornabile.</p>
+<div class="key"><b>Da portare a casa</b>"Il modello ricorda" è quasi sempre una scorciatoia linguistica per uno di questi quattro meccanismi — e sapere quale dei quattro è in gioco spiega cosa il sistema può e non può fare.</div>`}],
+l1:{title:"Tipi di memoria", qs:[
+{q:"Dove vive il sapere che un LLM ha imparato durante l'addestramento (es. che Parigi è la capitale della Francia)?", opts:["Nei pesi (memoria parametrica)","Nella context window","In un vector DB","Nel riassunto della conversazione"], a:0, why:"I fatti imparati durante l'addestramento sono congelati nei pesi del modello. Cambiarli richiede un nuovo addestramento (fine-tuning), non un semplice aggiornamento a runtime."},
+{q:"Cosa succede al contenuto della context window quando la conversazione finisce?", opts:["Sparisce: è memoria temporanea, valida solo per quella richiesta","Viene salvato per sempre nei pesi del modello","Viene automaticamente indicizzato in un vector DB","Diventa parte del training set del prossimo modello"], a:0, why:"La context window è memoria di lavoro (working memory): esiste solo per la durata della richiesta/conversazione attiva. Se non viene salvata altrove (riassunto, RAG, log), si perde."},
+{q:"Un chatbot che sembra ricordare le tue preferenze da una chat all'altra, giorni dopo, sta probabilmente usando:", opts:["Memoria conversazionale (riassunti/note salvate e re-iniettate)","Solo la context window della chat corrente","Pesi aggiornati in tempo reale","Nessuna memoria: è un'allucinazione"], a:0, why:"Tra sessioni diverse la context window è vuota. Per ricordare oltre la singola chat serve un sistema esterno che salva informazioni (spesso riassunte) e le re-inietta nelle conversazioni future."},
+{q:"Vuoi che il modello risponda su un manuale tecnico di 500 pagine aggiornato ogni settimana. La strategia più sensata è:", opts:["RAG: recuperare solo i passaggi rilevanti al momento della domanda","Fare fine-tuning del modello ogni settimana sul manuale","Incollare tutte le 500 pagine nella context window ad ogni domanda","Aspettare che il modello lo impari da solo"], a:0, why:"Il fine-tuning è costoso e va rifatto ad ogni aggiornamento; incollare tutto nel contesto sbatte contro il limite di token e i costi. Il RAG recupera solo ciò che serve, quando serve, restando aggiornato senza riaddestrare nulla."}
+]},
+l2:{title:"La finestra di contesto", qs:[
+{q:"Cosa deve stare dentro la context window di una richiesta?", opts:["System prompt + storico + eventuali documenti recuperati + domanda","Solo la domanda dell'utente","Solo i pesi del modello","Solo il vector DB"], a:0, why:"La context window è lo spazio totale di token che il modello può vedere in una singola richiesta: ci deve stare tutto insieme, dalle istruzioni di sistema alla domanda finale."},
+{q:"Perché una context window più lunga costa di più, come visto nel Modulo 1?", opts:["Ogni token in più fa crescere la KV cache, che deve stare in VRAM insieme ai pesi","Perché i pesi del modello aumentano con testi più lunghi","Perché il vocabolario dei token cambia in base alla lunghezza","Non costa di più: la context window è gratuita"], a:0, why:"Ogni token aggiunto al contesto crea nuove voci nella KV cache: più contesto, più VRAM occupata e più tempo per rileggerlo ad ogni parola generata."},
+{q:"Cosa indica il fenomeno chiamato \"lost in the middle\"?", opts:["Il modello presta meno attenzione alle informazioni nel mezzo di un contesto molto lungo","Il modello perde sempre l'inizio della conversazione","Il modello non può gestire più di 10 token","È un bug che sparisce aumentando la context window"], a:0, why:"Con contesti molto lunghi i modelli tendono a dare più peso a ciò che sta all'inizio e alla fine, trascurando relativamente le informazioni sepolte nel mezzo."},
+{q:"Se un documento è troppo grande per stare nella context window, l'alternativa a incollarlo tutto è:", opts:["Recuperare solo le parti rilevanti (RAG) invece di tutto il documento","Aumentare all'infinito la context window, sempre possibile e gratis","Ridurre il numero di pesi del modello","Ignorare il documento"], a:0, why:"Quando il contenuto non entra (o entrerebbe a un costo eccessivo), la soluzione pratica è selezionare solo i pezzi pertinenti da inserire — è esattamente il problema che il RAG risolve."}
+]},
+l4:["L'utente fa una domanda","La domanda viene trasformata in un embedding (vettore numerico)","Il vector DB cerca i chunk di documenti più simili (similarity search)","I chunk trovati vengono inseriti nel prompt insieme a storico e domanda","Il modello genera la risposta usando i pesi + il contesto ricevuto"],
+l3:{title:"Chunking", qs:[
+{q:"Perché non si indicizza un intero libro come un unico embedding?", opts:["Un chunk troppo grande annacqua il significato: l'embedding diventa troppo generico per essere utile alla ricerca","Perché i vector DB accettano solo un documento alla volta","Perché gli embedding funzionano solo su singole parole","Non è un problema: si può sempre indicizzare tutto insieme"], a:0, why:"Un embedding riassume il significato di un testo in un vettore. Se il testo è troppo lungo ed eterogeneo, quel riassunto diventa troppo generico per far emergere una corrispondenza precisa con la domanda dell'utente."},
+{q:"A cosa serve l'overlap tra chunk consecutivi?", opts:["Evitare che un'informazione importante venga tagliata esattamente al confine tra due chunk","Raddoppiare la dimensione del vector DB per sicurezza","Rendere gli embedding più lenti da calcolare","Non serve, è solo uno spreco di spazio"], a:0, why:"Se una frase chiave finisce tagliata a metà tra un chunk e il successivo, rischi di perderne il significato in entrambi i pezzi. Una piccola sovrapposizione fa sì che l'informazione compaia intera in almeno un chunk."},
+{q:"Per contenuti brevi e già ben separati (es. una lista di FAQ), qual è una buona strategia di chunking?", opts:["Un chunk per ogni voce (es. una domanda+risposta), così ogni chunk è autosufficiente","Un unico chunk con tutte le FAQ insieme","Un chunk per ogni singola parola","Non serve fare chunking per contenuti brevi: si indicizzano da soli"], a:0, why:"Quando il contenuto è già naturalmente diviso in unità autosufficienti, la chunk giusta è l'unità stessa: mantiene ogni pezzo completo e ricercabile senza tagli arbitrari."}
+]},
+l5:{title:"Retrieval", qs:[
+{q:"Cosa fa un modello di reranking dopo la similarity search iniziale?", opts:["Riordina i chunk recuperati con un modello più preciso (ma più lento) prima di passarli al LLM","Genera la risposta finale al posto del LLM","Cancella tutti i chunk trovati","Traduce i chunk in un'altra lingua"], a:0, why:"La similarity search iniziale è veloce e lavora su milioni di vettori; il reranking passa i pochi candidati trovati a un modello più accurato per ordinarli meglio prima di iniettarli nel contesto."},
+{q:"Quando conviene affiancare una ricerca per parole chiave (keyword) a quella semantica — hybrid search?", opts:["Quando servono corrispondenze esatte, es. codici prodotto, nomi propri, ID, che l'embedding potrebbe trattare come simili ma non identici","Mai: la ricerca semantica è sempre sufficiente","Solo quando il vector DB è troppo piccolo","Solo per contenuti in lingue diverse dall'italiano"], a:0, why:"L'embedding cattura il significato ma può sfumare le corrispondenze esatte. La ricerca per parole chiave recupera la precisione lessicale che la ricerca semantica da sola può perdere."},
+{q:"Il numero di chunk recuperati (il parametro k nel top-k) è:", opts:["Un compromesso: troppo pochi rischiano di perdere l'informazione giusta, troppi riempiono inutilmente il contesto (e peggiorano il lost in the middle)","Sempre fissato a 1 da ogni sistema RAG","Irrilevante ai fini del costo della richiesta","Un numero che deve sempre essere almeno 100"], a:0, why:"Un k troppo basso rischia di escludere il chunk giusto; un k troppo alto riempie il contesto di materiale poco rilevante, con più costo e il rischio di 'lost in the middle'."}
+]},
+boss:{title:"Sfida a tempo", qs:[
+{q:"In un sistema RAG completo, quale componente contiene il sapere generale del modello (grammatica, fatti generici) appreso una volta per tutte?", opts:["I pesi (memoria parametrica)","Il vector DB","La context window","Il riassunto della conversazione"], a:0, why:"I pesi restano la base di conoscenza generale e fissa del modello; RAG e context window aggiungono informazione fresca e specifica al momento della richiesta, senza toccare i pesi."},
+{q:"Perché il RAG non elimina il limite della context window?", opts:["Perché i chunk recuperati devono comunque entrare, insieme al resto, nello stesso spazio di token disponibile","Perché il RAG aumenta automaticamente la context window del modello","Perché il RAG sostituisce del tutto la context window","Non è vero: il RAG elimina completamente il limite"], a:0, why:"Il RAG cambia COSA mettere nel contesto (solo le parti rilevanti), non quanto contesto il modello può accettare in totale: tutto deve comunque starci insieme."},
+{q:"Qual è il rischio principale di un chunk size troppo piccolo?", opts:["Un singolo chunk perde il contesto attorno all'informazione, rendendola ambigua o incompleta","I costi di storage esplodono in modo incontrollabile","Il modello non riesce più a generare testo","Gli embedding diventano impossibili da calcolare"], a:0, why:"Chunk troppo piccoli tagliano via il contesto circostante: una frase isolata può risultare ambigua o priva delle informazioni necessarie a interpretarla correttamente."},
+{q:"Il fenomeno \"lost in the middle\" è un argomento a favore di:", opts:["Recuperare (RAG) solo i pochi passaggi davvero rilevanti invece di riempire il contesto con tutto il possibile","Riempire sempre il contesto al massimo consentito","Disattivare la context window","Usare solo memoria conversazionale, mai RAG"], a:0, why:"Se il modello presta meno attenzione al centro di contesti lunghi, riempirli di materiale non filtrato è controproducente: meglio selezionare (RAG) ciò che conta davvero."},
+{q:"Un utente chiede \"cosa mi hai consigliato la settimana scorsa?\". Serve principalmente:", opts:["Memoria conversazionale (riassunti/log tra sessioni), non solo la context window della chat attuale","Il vector DB dei documenti aziendali","Un fine-tuning immediato del modello","Nessuna memoria: il modello dovrebbe già saperlo dai pesi"], a:0, why:"Ricordare eventi di una sessione precedente non è un fatto generale imparato in addestramento (pesi) né qualcosa presente nella context window corrente: serve un sistema di memoria conversazionale che colleghi le sessioni."}
+]}
+},
+/* ---------------------------------------------------------------- EN */
+en: {
+ui:{kick:"LLM Course · Module 2", title:"Memory <span>& RAG</span>", sub:"How an LLM remembers (or fakes remembering) — from weights to retrieval",
+foot:"Chapters + tests · memory types · context window · embedding · chunking · retrieval · RAG", pts:"Score",
+homeEyebrow:"Module 2 of a series", homeTitle:"How an LLM remembers (or fakes remembering)",
+homeLede:`This is the <b>second module</b> of the course. In <a href="../">Module 1</a> you saw how an LLM generates text word by word and what the KV cache is. Here you'll see <b>where what the model "knows" comes from</b>: the <b>types of memory</b> (weights, context, external memory, conversational memory), the limits of the <b>context window</b>, and how <b>RAG</b> works — <b>embedding</b>, <b>chunking</b>, <b>retrieval</b> and <b>reranking</b>. Six chapters, 2-3 minutes each, with scored tests at the end.`,
+start:"Start from chapter 0", glossBtn:"Glossary", back:"Back", goCh1:"Go to chapter 1", goTest:"Take the test",
+skipTest:"Read-only → next chapter", module1:"← Module 1: Inside inference",
+chLbl:"Chapter", testLbl:"Test", question:"Question", of:"of", next:"Next", nextCh:"Next chapter",
+correct:"Correct", wrong:"Wrong", timeUp:"Time's up", retry:"Try again",
+glossTitle:"The module's 10 key words",
+ordEyebrow:"Test 3 — Order the RAG pipeline", ordHint:"Click the blocks in order: from the user's question to the generated answer",
+ordPerfect:"Perfect order", ordDone:e=>`Completed (${e} error${e===1?"":"s"})`,
+ordWhy:"The question must be turned into a vector BEFORE it can be compared with the already-indexed documents (also vectors). Only after finding the most similar chunks can they be injected into the prompt: the model generates nothing until it has both the question and the retrieved material.",
+grade:"Grade", score:"Score", acc:"Accuracy", maxStreak:"Max streak",
+copyBtn:"Copy LinkedIn post", again:"Play again", copied:"Copied ✓", copyFail:"Copy manually: select the text",
+share:(r,s,a)=>`I completed Module 2 of the "Memory & RAG" course — a game-based course on how LLMs work internally.\n\nGrade: ${r} (score ${s}, accuracy ${a}%).\n\nWhat you learn: the four types of LLM memory (weights, context window, external memory, conversational memory), why the context window has a limit and what "lost in the middle" means, and how RAG works — embedding, chunking, similarity search and reranking — to give a model fresh knowledge without retraining it.\n\n#LLM #AI #RAG #embedding #training`,
+fFormula:"query → embedding → similarity search → rerank → context → generation",
+ranks:[["Guru","RAG holds no more secrets: you know why retrieval beats both continuous fine-tuning and stuffing everything into context."],["Master","Almost perfect. Review chunking and retrieval and the Guru title is yours."],["Expert","The basics are solid: you tell the memory types apart well. Review chunking and reranking."],["Apprentice","Good start: reread chapters 2 and 3 and try again."],["Novice","Play again: the second run changes everything."]]},
+gloss:[
+["Parametric memory","The knowledge frozen in the model's <u>weights</u>, set during training. Changing it requires new training (fine-tuning)."],
+["Context window","The total token space the model can see in one request: <u>system prompt + history + retrieved documents + question</u>."],
+["Working memory","Another name for the context window: <u>temporary</u> working memory, valid only for the current request."],
+["RAG","<u>Retrieval-Augmented Generation</u>: retrieves only relevant information from an external source and injects it into context, instead of retraining the model or pasting everything in."],
+["Embedding","A numeric representation (<u>vector</u>) of a text's meaning: texts with similar meaning have vectors close to each other."],
+["Vector DB","A database specialized in storing embeddings and <u>quickly searching</u> for the ones closest to a given vector."],
+["Chunking","Cutting a document into smaller pieces (<u>chunks</u>) before computing embeddings, so meaning doesn't get diluted."],
+["Retrieval","The search step: given the question's embedding, find the most similar chunks in the vector DB (<u>similarity search</u>)."],
+["Reranking","A second, more precise but slower pass that <u>reorders</u> the few chunks found by the initial search before using them."],
+["Conversational memory","Summaries or notes saved <u>between sessions</u>, to give the impression that the system remembers past conversations."]],
+ch0:{title:"Why an LLM needs 'external' memory", body:`
+<h3>The model doesn't remember: it rereads</h3>
+<p>In Module 1 you saw that an LLM generates text one word at a time, looking at everything in its <b>context window</b>. But as soon as the conversation ends, that window empties out: the model has no "diary" where it notes what you told it yesterday. Every request effectively starts from zero — unless someone hands it the right information again.</p>
+<h3>Do the weights know everything? No</h3>
+<p>The <b>weights</b> (Module 1) hold general knowledge, learned during training and then <b>frozen</b>. They know Paris is the capital of France, but they don't know what you wrote in yesterday's email, nor what the internal manual updated last week says: that information didn't exist (or wasn't relevant) during training.</p>
+<h3>Two tempting but wrong paths</h3>
+<p>To give the model fresh or specific information, two paths seem obvious and are almost always wrong: <b>retraining</b> the model every time something changes (expensive, slow, must be redone at every update), or <b>pasting all</b> available material into the context window on every question (the window has a token limit, and the longer it gets the more it costs in time and VRAM, as seen in Module 1).</p>
+<div class="key"><b>Key takeaway</b>An LLM has no automatic persistent memory: it has frozen weights and a temporary context window. Everything else — remembering fresh facts, past conversations, specific documents — has to be built on top, with external systems.</div>
+<p>This module maps those systems: what types of memory exist, how the most common one works (RAG), and its moving parts — embedding, chunking, retrieval.</p>`},
+ch:[
+{title:"The four types of memory", body:`
+<h3>There isn't "the" memory of an LLM: there are four</h3>
+<p>When a system like ChatGPT or Claude seems to "remember" something, it's actually using one (or more) of these very different mechanisms:</p>
+<h3>1. Parametric memory</h3>
+<p>The knowledge <b>frozen in the model's weights</b>: grammar, general facts, reasoning ability. Learned once, during training. Changing it requires fine-tuning: expensive, slow, not built for frequent updates.</p>
+<h3>2. Context memory (working memory)</h3>
+<p>The current request's <b>context window</b>: system prompt, chat history, any attached documents, the question. It lives only for the duration of the request — powerful but <b>temporary</b> and limited in size.</p>
+<h3>3. External memory (RAG)</h3>
+<p>A knowledge base <b>outside the model</b> (documents, databases, a company wiki) consulted on demand: only what's needed is retrieved and inserted into that specific request's context window. Updatable at any time, without touching the weights.</p>
+<h3>4. Conversational memory</h3>
+<p>Summaries, preferences or notes saved <b>between sessions</b> (e.g. "the user prefers short answers", "they were working on project X"). It's neither in the weights nor in the current chat's context window: it's a separate system that writes and re-injects information into future conversations.</p>
+<div class="ex">Weights → what the model KNOWS in general (fixed)
+Context window → what the model SEES right now (temporary)
+RAG → what the model CAN GO LOOK UP (external, updatable)
+Conversational memory → what the system REMEMBERS about you across sessions</div>
+<div class="key"><b>Key takeaway</b>Whenever you hear that an LLM "learned" or "remembers" something, ask: weights, context, RAG, or conversational memory? Four different mechanisms, with different costs and limits.</div>`},
+{title:"The context window: how much you can remember right now", body:`
+<h3>Everything must fit in one space</h3>
+<p>The <b>context window</b> is the total token space the model can "see" in a single request. Everything must fit in there together: system instructions, conversation history, any retrieved documents, and finally the user's question. If there isn't enough room, something must be cut or summarized.</p>
+<h3>More context, more cost</h3>
+<p>In Module 1 you saw that every token in context creates new entries in the <b>KV cache</b>, which must sit in VRAM alongside the weights. A longer context window isn't "free": it costs more memory and more time, because with every generated word the model rereads the entire archive.</p>
+<h3>Lost in the middle</h3>
+<p>There's a subtler problem: with very long contexts, models tend to pay more attention to what's at the <b>beginning</b> and <b>end</b> of the context, relatively neglecting information buried <b>in the middle</b>. This phenomenon is called <b>"lost in the middle"</b>.</p>
+<div class="warn"><b>Why it matters</b>Filling the context window with unfiltered material isn't just costly: it can also worsen answers, because useful information risks landing exactly in the "blind" middle zone.</div>
+<p>Practical conclusion: the context window should be treated as a <b>scarce, valuable</b> resource to fill carefully — not as an infinite bin to dump everything into. That's exactly the problem the next chapter tackles.</p>`},
+{title:"RAG: retrieving instead of remembering everything", body:`
+<h3>The core idea</h3>
+<p><b>RAG</b> (Retrieval-Augmented Generation) starts from a simple observation: instead of making the model learn everything (fine-tuning, slow and expensive) or pasting everything into context (token limits, cost, "lost in the middle"), you can <b>retrieve on the fly only what's needed</b> to answer THIS specific question, and insert it into the context window only for this request.</p>
+<h3>The problem: how to "search by meaning"</h3>
+<p>Keyword search isn't enough: if the user asks "how do I cancel an order?" and the manual says "return and cancellation procedure", the words don't match but the meaning does. You need a way to compare <b>meanings</b>, not just words.</p>
+<h3>Embedding: meaning as a vector</h3>
+<p>An <b>embedding</b> is a list of numbers (a vector) representing a text's meaning. Texts with similar meaning produce vectors that are <b>close</b> to each other in space; texts with different meaning produce distant vectors. "Cancel an order" and "cancellation procedure" end up close, even without shared words.</p>
+<div class="ex">text → embedding model → [0.12, -0.87, 0.33, ...] (e.g. 1536 numbers)
+small distance between vectors → similar meaning
+large distance between vectors → different meaning</div>
+<h3>Vector DB: the searchable archive</h3>
+<p>All document embeddings are stored in a <b>vector DB</b>, a database designed specifically to quickly find, among millions of vectors, the ones closest to a given vector — without comparing them one by one.</p>
+<div class="key"><b>Key takeaway</b>RAG = turn the question and documents into vectors (embeddings), store them in a searchable database (vector DB), and retrieve only the pieces closest in meaning to the question.</div>`},
+{title:"Chunking: how to cut up documents", body:`
+<h3>Why you don't index a whole book</h3>
+<p>An embedding summarizes a text's meaning into a single vector. If the text is too long and heterogeneous — an entire manual, a book — that summary becomes <b>too generic</b>: it mixes together dozens of different topics and loses the ability to produce a precise match with the user's question.</p>
+<h3>The solution: chunks</h3>
+<p>Before computing embeddings, documents are cut into smaller, more homogeneous pieces called <b>chunks</b> (e.g. a few hundred words each). Each chunk gets its own embedding and is indexed separately: this way the vector DB can find exactly the right paragraph, not the entire book.</p>
+<h3>The right size is a trade-off</h3>
+<p>Chunks that are too <b>small</b> risk losing the context around a piece of information, making it ambiguous or incomplete when read alone. Chunks that are too <b>large</b> bring back the original problem: overly generic embeddings. Size should be chosen based on the type of content.</p>
+<h3>Overlap: a safety net</h3>
+<p>If a key piece of information falls exactly on the boundary between one chunk and the next, it risks being incomplete in both. That's why <b>overlap</b> is often used: a small overlap of text between consecutive chunks, so every piece of information appears whole in at least one chunk.</p>
+<div class="ex">Long document → cut into ~300-500 word chunks
++ ~50 word overlap between consecutive chunks
+→ each chunk gets its own embedding, indexed separately</div>`},
+{title:"Retrieval: searching by similarity", body:`
+<h3>The moment of the question</h3>
+<p>When a question arrives, it too is turned into its own embedding. The vector DB compares that vector against all indexed chunks and returns the <b>top-k</b> closest ones (e.g. the 5 most similar chunks): this step is called <b>similarity search</b> or <b>retrieval</b>.</p>
+<h3>A second filter: reranking</h3>
+<p>The initial similarity search is fast but somewhat coarse: it works over millions of vectors and uses mathematical shortcuts to stay quick. A <b>reranking</b> model, slower but more precise, takes the few candidates found and <b>reorders</b> them with a direct, more accurate comparison against the question, before handing them to the LLM.</p>
+<h3>When exact words matter: hybrid search</h3>
+<p>Embeddings capture meaning, but they can blur <b>exact</b> matches: a product code like "SKU-2231" and one like "SKU-2241" can end up vectorially close despite being two different products. That's why many systems pair semantic search with traditional <b>keyword</b> search (e.g. BM25): this combination is called <b>hybrid search</b> and is useful for codes, proper names, IDs, serial numbers.</p>
+<div class="key"><b>Key takeaway</b>Retrieval = finding the chunks most similar to the question (similarity search), often refined by reranking, and sometimes paired with keyword search when lexical precision matters.</div>`},
+{title:"Recap: memory in practice", body:`
+<h3>The full picture</h3>
+<p>Let's put the pieces back together. A ChatGPT- or Claude-like system with RAG, faced with a question, roughly does this:</p>
+<div class="ex">1. The user asks a question
+2. The question is turned into an embedding
+3. The vector DB searches for the most similar document chunks (retrieval)
+4. Reranking (optional) reorders the best candidates
+5. The chosen chunks + history + system prompt enter the context window
+6. The model generates the answer using the weights (general knowledge) + the received context (specific knowledge)</div>
+<h3>The four memories, again</h3>
+<p><b>Weights</b> = what the model knows in general, fixed. <b>Context window</b> = what it sees in this request, temporary and limited. <b>RAG</b> = what it can go look up when needed, external and always updatable. <b>Conversational memory</b> = what the system remembers about you between sessions, usually as summaries re-injected into context.</p>
+<h3>Why it works</h3>
+<p>None of these memories alone would be enough: weights alone know nothing specific or recent; the context window alone is too small and expensive to hold entire knowledge bases; conversational memory alone doesn't cover external documents. Combined, they cover three different needs: general knowledge, immediate context, updatable external knowledge.</p>
+<div class="key"><b>Key takeaway</b>"The model remembers" is almost always a linguistic shortcut for one of these four mechanisms — and knowing which of the four is at play explains what the system can and cannot do.</div>`}],
+l1:{title:"Types of memory", qs:[
+{q:"Where does the knowledge an LLM learned during training live (e.g. that Paris is the capital of France)?", opts:["In the weights (parametric memory)","In the context window","In a vector DB","In the conversation summary"], a:0, why:"Facts learned during training are frozen into the model's weights. Changing them requires new training (fine-tuning), not a simple runtime update."},
+{q:"What happens to the context window's content when the conversation ends?", opts:["It disappears: it's temporary memory, valid only for that request","It's saved forever into the model's weights","It's automatically indexed into a vector DB","It becomes part of the next model's training set"], a:0, why:"The context window is working memory: it exists only for the duration of the active request/conversation. If not saved elsewhere (summary, RAG, logs), it's lost."},
+{q:"A chatbot that seems to remember your preferences from one chat to another, days later, is probably using:", opts:["Conversational memory (summaries/notes saved and re-injected)","Only the current chat's context window","Weights updated in real time","No memory: it's a hallucination"], a:0, why:"Across different sessions the context window is empty. Remembering beyond a single chat requires an external system that saves information (often summarized) and re-injects it into future conversations."},
+{q:"You want the model to answer questions about a 500-page technical manual updated every week. The most sensible strategy is:", opts:["RAG: retrieve only the relevant passages at question time","Fine-tune the model on the manual every week","Paste all 500 pages into the context window on every question","Wait for the model to learn it on its own"], a:0, why:"Fine-tuning is expensive and must be redone at every update; pasting everything into context hits token limits and cost. RAG retrieves only what's needed, when needed, staying up to date without retraining anything."}
+]},
+l2:{title:"The context window", qs:[
+{q:"What must fit inside a request's context window?", opts:["System prompt + history + any retrieved documents + question","Only the user's question","Only the model's weights","Only the vector DB"], a:0, why:"The context window is the total token space the model can see in a single request: everything must fit together, from system instructions to the final question."},
+{q:"Why does a longer context window cost more, as seen in Module 1?", opts:["Every extra token grows the KV cache, which must sit in VRAM alongside the weights","Because the model's weights grow with longer texts","Because the token vocabulary changes based on length","It doesn't cost more: the context window is free"], a:0, why:"Every token added to context creates new entries in the KV cache: more context means more VRAM used and more time to reread it for every generated word."},
+{q:"What does the phenomenon called \"lost in the middle\" indicate?", opts:["The model pays less attention to information in the middle of a very long context","The model always loses the beginning of the conversation","The model can't handle more than 10 tokens","It's a bug that disappears by increasing the context window"], a:0, why:"With very long contexts, models tend to give more weight to what's at the beginning and end, relatively neglecting information buried in the middle."},
+{q:"If a document is too big to fit in the context window, the alternative to pasting it all in is:", opts:["Retrieving only the relevant parts (RAG) instead of the whole document","Increasing the context window infinitely, always possible and free","Reducing the model's number of weights","Ignoring the document"], a:0, why:"When content doesn't fit (or would fit at excessive cost), the practical solution is to select only the relevant pieces to include — exactly the problem RAG solves."}
+]},
+l4:["The user asks a question","The question is turned into an embedding (numeric vector)","The vector DB searches for the most similar document chunks (similarity search)","The found chunks are inserted into the prompt along with history and question","The model generates the answer using the weights + the received context"],
+l3:{title:"Chunking", qs:[
+{q:"Why isn't an entire book indexed as a single embedding?", opts:["A too-large chunk dilutes meaning: the embedding becomes too generic to be useful for search","Because vector DBs only accept one document at a time","Because embeddings only work on single words","It's not a problem: you can always index everything together"], a:0, why:"An embedding summarizes a text's meaning into a vector. If the text is too long and heterogeneous, that summary becomes too generic to produce a precise match with the user's question."},
+{q:"What is the overlap between consecutive chunks for?", opts:["Preventing important information from being cut exactly at the boundary between two chunks","Doubling the vector DB's size for safety","Making embeddings slower to compute","It's not needed, it's just wasted space"], a:0, why:"If a key sentence gets cut in half between one chunk and the next, you risk losing its meaning in both pieces. A small overlap ensures the information appears whole in at least one chunk."},
+{q:"For short, already well-separated content (e.g. a list of FAQs), what's a good chunking strategy?", opts:["One chunk per entry (e.g. one question+answer), so each chunk is self-contained","One single chunk with all the FAQs together","One chunk per single word","No chunking is needed for short content: it indexes itself"], a:0, why:"When content is already naturally divided into self-contained units, the right chunk is the unit itself: it keeps each piece whole and searchable without arbitrary cuts."}
+]},
+l5:{title:"Retrieval", qs:[
+{q:"What does a reranking model do after the initial similarity search?", opts:["Reorders the retrieved chunks with a more precise (but slower) model before passing them to the LLM","Generates the final answer instead of the LLM","Deletes all the found chunks","Translates the chunks into another language"], a:0, why:"The initial similarity search is fast and works over millions of vectors; reranking passes the few found candidates to a more accurate model to order them better before injecting them into context."},
+{q:"When is it worth pairing keyword search with semantic search — hybrid search?", opts:["When exact matches are needed, e.g. product codes, proper names, IDs, that embeddings might treat as similar but not identical","Never: semantic search is always enough","Only when the vector DB is too small","Only for content in languages other than English"], a:0, why:"Embeddings capture meaning but can blur exact matches. Keyword search recovers the lexical precision that semantic search alone can lose."},
+{q:"The number of retrieved chunks (the top-k parameter) is:", opts:["A trade-off: too few risk missing the right information, too many needlessly fill up context (and worsen lost in the middle)","Always fixed at 1 by every RAG system","Irrelevant to the request's cost","A number that must always be at least 100"], a:0, why:"A too-low k risks excluding the right chunk; a too-high k fills context with less relevant material, at higher cost and risk of 'lost in the middle'."}
+]},
+boss:{title:"Timed challenge", qs:[
+{q:"In a complete RAG system, which component holds the model's general knowledge (grammar, generic facts) learned once and for all?", opts:["The weights (parametric memory)","The vector DB","The context window","The conversation summary"], a:0, why:"The weights remain the model's fixed, general knowledge base; RAG and the context window add fresh, specific information at request time, without touching the weights."},
+{q:"Why doesn't RAG eliminate the context window limit?", opts:["Because retrieved chunks still have to fit, along with everything else, in the same available token space","Because RAG automatically increases the model's context window","Because RAG completely replaces the context window","It's not true: RAG completely eliminates the limit"], a:0, why:"RAG changes WHAT goes into context (only the relevant parts), not how much context the model can accept overall: everything still has to fit together."},
+{q:"What's the main risk of a chunk size that's too small?", opts:["A single chunk loses the context around the information, making it ambiguous or incomplete","Storage costs explode uncontrollably","The model can no longer generate text","Embeddings become impossible to compute"], a:0, why:"Chunks that are too small cut away surrounding context: an isolated sentence can end up ambiguous or missing the information needed to interpret it correctly."},
+{q:"The \"lost in the middle\" phenomenon is an argument in favor of:", opts:["Retrieving (RAG) only the few truly relevant passages instead of filling context with everything possible","Always filling context to the maximum allowed","Disabling the context window","Using only conversational memory, never RAG"], a:0, why:"If the model pays less attention to the middle of long contexts, filling them with unfiltered material is counterproductive: better to select (RAG) what truly matters."},
+{q:"A user asks \"what did you recommend last week?\". This mainly requires:", opts:["Conversational memory (summaries/logs across sessions), not just the current chat's context window","The company documents' vector DB","Immediate fine-tuning of the model","No memory: the model should already know it from the weights"], a:0, why:"Remembering events from a previous session isn't a general fact learned in training (weights) nor something present in the current context window: it requires a conversational memory system linking sessions."}
+]}
+}
+};
+
+/* ============================================================ BUILD */
+let lang = "it", T, LEVELS;
+function build(){
+  T = I18N[lang];
+  LEVELS = [
+    {type:"quiz", title:T.l1.title, qs:T.l1.qs},
+    {type:"quiz", title:T.l2.title, qs:T.l2.qs},
+    {type:"order"},
+    {type:"quiz", title:T.l3.title, qs:T.l3.qs},
+    {type:"quiz", title:T.l5.title, qs:T.l5.qs},
+    {type:"quiz", title:T.boss.title, qs:T.boss.qs, timed:12}
+  ];
+  document.getElementById("h-kick").innerHTML = T.ui.kick;
+  document.getElementById("h-title").innerHTML = T.ui.title;
+  document.getElementById("h-sub").textContent = T.ui.sub;
+  document.getElementById("foot").textContent = T.ui.foot;
+  document.getElementById("hud-pts-l").textContent = T.ui.pts;
+  document.documentElement.lang = lang;
+  const lb=document.getElementById("langs"); lb.innerHTML="";
+  Object.keys(I18N).forEach(l=>{
+    const b=document.createElement("button"); b.textContent=l.toUpperCase();
+    b.className = l===lang?"on":""; b.onclick=()=>setLang(l); lb.appendChild(b);
+  });
+}
+function setLang(l){ if(l===lang) return; lang=l; build(); rerender(); }
+function rerender(){
+  if(R.screen==="home") home();
+  else if(R.screen==="gloss") glossario();
+  else if(R.screen==="chapter") chapter(R.i);
+  else if(R.screen==="test"){ const L=LEVELS[R.i];
+    L.type==="quiz" ? quizQ(L,R.q,R.i) : orderRun(); }
+  else finale();
+}
+
+/* ============================================================ HUD */
+function hud(){
+  document.getElementById("hud").hidden = false;
+  document.getElementById("hud-score").textContent = S.score;
+  const st = document.getElementById("hud-streak");
+  st.textContent = S.streak; st.className = S.streak>=3 ? "streak-on" : "";
+  const p = document.getElementById("hud-pages"); p.innerHTML="";
+  LEVELS.forEach((_,i)=>{const el=document.createElement("i");
+    if(i<S.level)el.className="done"; else if(i===S.level)el.className="now"; p.appendChild(el);});
+}
+function award(ok, base=100){
+  S.answered++;
+  if(ok){ S.correct++; S.streak++; S.maxStreak=Math.max(S.maxStreak,S.streak);
+    S.score += Math.round(base*(1+S.streak*0.15)); }
+  else S.streak=0;
+  hud();
+}
+
+/* ============================================================ SCREENS */
+function home(){
+  R={screen:"home"};
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.homeEyebrow}</div>
+    <div class="headline">${T.ui.homeTitle}</div>
+    <p class="lede">${T.ui.homeLede}</p>
+    <button class="btn" onclick="chapter(-1)">${T.ui.start}</button>
+    <button class="btn ghost" onclick="glossario()" style="margin-left:10px">${T.ui.glossBtn}</button>
+    <div style="margin-top:16px"><a class="btn ghost" href="../">${T.ui.module1}</a></div>`;
+  hud();
+}
+
+function glossario(){
+  R={screen:"gloss"};
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.glossBtn}</div>
+    <div class="headline">${T.ui.glossTitle}</div>
+    <div class="gloss">${T.gloss.map(g=>`<div class="g"><b>${g[0]}</b>${g[1]}</div>`).join("")}</div>
+    <div class="next-row"><button class="btn" onclick="chapter(-1)">${T.ui.start}</button><button class="btn ghost" onclick="home()">${T.ui.back}</button></div>`;
+  hud();
+}
+
+function chapter(i){
+  R={screen:"chapter", i};
+  const c = i<0 ? T.ch0 : T.ch[i];
+  if(i>=0){ S.level=i; }
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.chLbl} ${i<0?0:i+1}</div>
+    <div class="headline">${c.title}</div>
+    <div class="lesson">${c.body}</div>
+    <div class="next-row">
+      <button class="btn" id="go">${i<0?T.ui.goCh1:T.ui.goTest}</button>
+      ${i>=0?`<button class="btn ghost" id="skip">${T.ui.skipTest}</button><button class="btn ghost" onclick="glossario()">${T.ui.glossBtn}</button>`:""}
+    </div>`;
+  document.getElementById("go").onclick = ()=> i<0 ? chapter(0) : startTest(i);
+  if(i>=0) document.getElementById("skip").onclick = ()=> skipToNext(i);
+  hud();
+  window.scrollTo({top:0});
+}
+function skipToNext(i){ i+1<T.ch.length ? chapter(i+1) : home(); }
+
+function startTest(i){
+  S.level=i; hud();
+  const L=LEVELS[i];
+  if(L.type==="quiz") quizQ(L,0,i);
+  else orderRun();
+}
+function nextLevel(){ S.level+1<LEVELS.length ? chapter(S.level+1) : finale(); }
+
+let bossTimer=null;
+function quizQ(L,i,lvl){
+  R={screen:"test", i:lvl, q:i};
+  clearTimeout(bossTimer);
+  const q=L.qs[i];
+  let order=q.opts.map((_,j)=>j);
+  order.sort(()=>Math.random()-.5);
+  const tags="ABCD";
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.testLbl} ${lvl+1} — ${L.title}</div>
+    ${L.timed?`<div class="timer"><i id="tbar" class="run"></i></div>`:""}
+    <div class="q-count">${T.ui.question} ${i+1} ${T.ui.of} ${L.qs.length}</div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="opts">${order.map((oi,k)=>`<button class="opt" data-oi="${oi}"><span class="tag">${tags[k]}</span><span>${q.opts[oi]}</span></button>`).join("")}</div>
+    <div id="after"></div>`;
+  const lock = (chosenBtn, timeout)=>{
+    const btns=[...document.querySelectorAll(".opt")];
+    btns.forEach(b=>b.disabled=true);
+    const ok = chosenBtn && +chosenBtn.dataset.oi===q.a;
+    btns.forEach(b=>{ if(+b.dataset.oi===q.a) b.classList.add("right"); });
+    if(chosenBtn && !ok) chosenBtn.classList.add("wrong");
+    award(ok, L.timed?150:100);
+    document.getElementById("after").innerHTML =
+      `<div class="explain"><b class="${ok?"ok":"ko"}">${ok?T.ui.correct:timeout?T.ui.timeUp:T.ui.wrong}</b>${q.why}</div>
+       <div class="next-row"><button class="btn" id="nx">${i+1<L.qs.length?T.ui.next:T.ui.nextCh}</button></div>`;
+    document.getElementById("nx").onclick=()=> i+1<L.qs.length ? quizQ(L,i+1,lvl) : nextLevel();
+    document.getElementById("nx").focus();
+  };
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>lock(b,false));
+  if(L.timed){
+    const bar=document.getElementById("tbar");
+    requestAnimationFrame(()=>{bar.style.transitionDuration=L.timed+"s"; bar.style.width="0%";});
+    bossTimer=setTimeout(()=>lock(null,true), L.timed*1000);
+  }
+}
+
+/* ---------- order ---------- */
+function orderRun(){
+  R={screen:"test", i:2, q:0};
+  let next=0, errs=0;
+  const blocks = T.l4.map((t,pos)=>({t,pos}));
+  const shuffled=[...blocks].sort(()=>Math.random()-.5);
+  stage.innerHTML = `
+    <div class="eyebrow">${T.ui.ordEyebrow}</div>
+    <div class="q-count">${T.ui.ordHint}</div>
+    <div class="order-line" id="line"></div>
+    <div class="order-pool" id="pool">${shuffled.map(b=>`<button class="chip" data-pos="${b.pos}">${b.t}</button>`).join("")}</div>
+    <div id="after"></div>`;
+  document.querySelectorAll("#pool .chip").forEach(ch=>ch.onclick=()=>{
+    if(+ch.dataset.pos===next){
+      ch.classList.add("placed"); ch.disabled=true;
+      document.getElementById("line").appendChild(ch); next++;
+      if(next===blocks.length){
+        const perfect=errs===0;
+        award(true, perfect?300:Math.max(80,300-errs*60));
+        document.getElementById("after").innerHTML =
+          `<div class="explain"><b class="ok">${perfect?T.ui.ordPerfect:T.ui.ordDone(errs)}</b>${T.ui.ordWhy}</div>
+           <div class="next-row"><button class="btn" id="nx">${T.ui.nextCh}</button></div>`;
+        document.getElementById("nx").onclick=nextLevel;
+      }
+    } else {
+      errs++; ch.classList.remove("err"); void ch.offsetWidth; ch.classList.add("err");
+    }
+  });
+}
+
+/* ---------- finale ---------- */
+function rank(){
+  const max=LEVELS.reduce((t,L)=>t+(L.qs?L.qs.length*(L.timed?150:100)*1.6:300*1.6),0);
+  const pct=S.score/max;
+  const i = pct>=0.82?0 : pct>=0.62?1 : pct>=0.42?2 : pct>=0.22?3 : 4;
+  return T.ui.ranks[i];
+}
+function finale(){
+  R={screen:"final"};
+  S.level=LEVELS.length; hud();
+  const [r,motto]=rank();
+  const acc=S.answered?Math.round(S.correct/S.answered*100):0;
+  stage.innerHTML = `
+    <div class="final">
+      <div class="badge"><b>${r}</b><span>MODULE 2</span></div>
+      <h2>${T.ui.grade}: ${r}</h2>
+      <p class="motto">${motto}</p>
+      <div class="f-stats">
+        <div class="s"><span>${T.ui.score}</span><b>${S.score}</b></div>
+        <div class="s"><span>${T.ui.acc}</span><b>${acc}%</b></div>
+        <div class="s"><span>${T.ui.maxStreak}</span><b>${S.maxStreak}</b></div>
+      </div>
+      <div class="f-formula">${T.ui.fFormula}</div>
+      <div class="share-row">
+        <button class="btn" id="copy">${T.ui.copyBtn}</button>
+        <button class="btn ghost" id="again">${T.ui.again}</button>
+        <span class="toast" id="toast"></span>
+      </div>
+    </div>`;
+  document.getElementById("again").onclick=()=>{Object.assign(S,{score:0,streak:0,maxStreak:0,correct:0,answered:0,level:0});home();};
+  document.getElementById("copy").onclick=()=>{
+    const txt=T.ui.share(r,S.score,acc);
+    navigator.clipboard.writeText(txt).then(()=>{document.getElementById("toast").textContent=T.ui.copied;})
+      .catch(()=>{document.getElementById("toast").textContent=T.ui.copyFail;});
+  };
+}
+
+build();
+home();
+</script>
+</body>
+</html>
