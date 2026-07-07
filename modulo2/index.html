@@ -92,6 +92,7 @@ button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
 .share-row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;justify-content:center}
 .toast{font-family:var(--mono);font-size:12px;color:var(--ok);align-self:center}
 .footer-note{font-family:var(--mono);font-size:11px;color:var(--soft);border-top:1px solid var(--line);margin-top:40px;padding-top:12px;text-align:center}
+.visits{text-align:center;margin-top:10px;opacity:.7}
 .gloss{display:grid;gap:10px;max-width:700px;margin-bottom:8px}
 .gloss .g{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 15px;font-size:14.5px;line-height:1.5}
 .gloss .g b{font-family:var(--mono);font-size:13px;color:var(--acc);display:block;margin-bottom:2px}
@@ -115,6 +116,7 @@ button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
   </div>
   <main class="stage" id="stage" aria-live="polite"></main>
   <div class="footer-note" id="foot"></div>
+  <div class="visits"><img src="https://hits.sh/antoniociccia.github.io/learnllm/modulo2.svg?label=visite&color=5b4fd6" alt="contatore visite" loading="lazy" width="70" height="20"></div>
 </div>
 
 <script>
@@ -202,7 +204,13 @@ distanza tra vettori piccola → significato simile
 distanza tra vettori grande → significato diverso</div>
 <h3>Vector DB: l'archivio ricercabile</h3>
 <p>Tutti gli embedding dei documenti vengono salvati in un <b>vector DB</b>, un database pensato apposta per trovare rapidamente, tra milioni di vettori, quelli più vicini a un vettore dato — senza doverli confrontare uno a uno.</p>
-<div class="key"><b>Da portare a casa</b>RAG = trasformare domanda e documenti in vettori (embedding), salvarli in un database ricercabile (vector DB), e recuperare solo i pezzi più vicini di significato alla domanda.</div>`},
+<h3>Quali vector DB, in pratica</h3>
+<p>Non esiste "il" vector DB giusto: la scelta dipende da cosa hai già in produzione. Tra le opzioni open source più usate:</p>
+<p><b>pgvector</b> — un'estensione di PostgreSQL: se hai già un database Postgres, aggiungi la ricerca vettoriale senza gestire un sistema separato. Ottimo punto di partenza per progetti piccoli o medi.</p>
+<p><b>Qdrant</b> e <b>Weaviate</b> — vector DB "nativi", pensati apposta per questo: filtri sui metadati, ricerca ibrida (vettoriale + parole chiave) integrata, buona scalabilità su grandi collezioni. Scelta solida quando i documenti crescono o servono filtri complessi (es. "solo i documenti del reparto X").</p>
+<p><b>Milvus</b> — pensato per scale molto grandi (miliardi di vettori), diffuso in contesti enterprise; più complesso da gestire in self-hosting rispetto alle alternative sopra.</p>
+<p><b>FAISS</b> — non è un database ma una libreria (di Meta) per la ricerca di similarità: velocissima, gira in memoria, ma senza persistenza, filtri o gestione multi-utente incorporati. Utile per prototipare o per volumi che stanno comodi in RAM.</p>
+<div class="key"><b>Criterio pratico</b>Hai già Postgres? Parti da pgvector. Ti serve filtro sui metadati e ricerca ibrida pronta all'uso? Qdrant o Weaviate. Devi scalare a miliardi di vettori? Milvus. Stai solo prototipando? FAISS.</div>`},
 {title:"Chunking: come tagliare i documenti", body:`
 <h3>Perché non si indicizza un libro intero</h3>
 <p>Un embedding riassume il significato di un testo in un unico vettore. Se il testo è troppo lungo ed eterogeneo — un intero manuale, un libro — quel riassunto diventa <b>troppo generico</b>: mischia insieme decine di argomenti diversi e perde la capacità di far emergere una corrispondenza precisa con la domanda dell'utente.</p>
@@ -222,7 +230,14 @@ distanza tra vettori grande → significato diverso</div>
 <p>La similarity search iniziale è veloce ma un po' grezza: lavora su milioni di vettori e usa scorciatoie matematiche per essere rapida. Un modello di <b>reranking</b>, più lento ma più preciso, prende i pochi candidati trovati e li <b>riordina</b> con un confronto diretto e più accurato con la domanda, prima di passarli al LLM.</p>
 <h3>Quando le parole esatte contano: hybrid search</h3>
 <p>L'embedding cattura il significato, ma può sfumare le corrispondenze <b>esatte</b>: un codice prodotto come "SKU-2231" e uno come "SKU-2241" possono risultare vettorialmente vicini pur essendo due prodotti diversi. Per questo, molti sistemi affiancano alla ricerca semantica una ricerca tradizionale per <b>parole chiave</b> (es. BM25): questa combinazione si chiama <b>hybrid search</b> ed è utile per codici, nomi propri, ID, numeri di serie.</p>
-<div class="key"><b>Da portare a casa</b>Retrieval = trovare i chunk più simili alla domanda (similarity search), spesso raffinati da un reranking, ed eventualmente affiancati da una ricerca per parole chiave quando la precisione lessicale conta.</div>`},
+<h3>La compattazione della memoria conversazionale</h3>
+<p>Nelle conversazioni lunghe, tenere tutta la storia parola per parola nella context window diventa presto insostenibile: costa (Modulo 1: più token, più KV cache) e peggiora le risposte (capitolo 2: lost in the middle). Per questo molti sistemi applicano periodicamente una <b>passata di compattazione</b>: invece di conservare alla lettera tutti i turni precedenti, li riassumono in un testo più corto.</p>
+<p>In pratica: i turni <b>più recenti</b> restano intatti (il modello deve vederli con precisione), mentre quelli <b>più vecchi</b> vengono sostituiti da un riassunto via via aggiornato — una sorta di "verbale" della conversazione fin lì.</p>
+<h3>Quando scatta e come entra nella context window</h3>
+<p>La compattazione di solito scatta secondo criteri semplici: quando la storia si avvicina a una soglia del budget di token disponibile, dopo un numero fisso di turni, o a intervalli di tempo. Il riassunto non è magia: è generato dallo stesso LLM (o da uno più piccolo), a cui si chiede esplicitamente di condensare la conversazione fin lì.</p>
+<p>Una volta creato, il riassunto viene semplicemente <b>reinserito nella context window</b> ad ogni richiesta successiva, di solito vicino al system prompt: si comporta come un chunk recuperato via RAG, con la differenza che il contenuto viene dalla conversazione stessa invece che da un documento esterno.</p>
+<div class="warn"><b>Attenzione</b>Compattare significa perdere dettagli: un riassunto contiene solo ciò che chi l'ha generato ha giudicato rilevante. Se un dato preciso — un numero, una data — resta fuori dal riassunto, la conversazione lo "dimentica", anche se l'utente l'aveva scritto poche battute prima.</div>
+<div class="key"><b>Da portare a casa</b>Retrieval = trovare i chunk più simili alla domanda (similarity search), spesso raffinati da un reranking, eventualmente affiancati da una ricerca per parole chiave. La memoria conversazionale usa la stessa logica di "riassumi e reinietta" per restare dentro il budget della context window.</div>`},
 {title:"Ricapitolando: la memoria in pratica", body:`
 <h3>Il quadro completo</h3>
 <p>Rimettiamo insieme i pezzi. Un sistema tipo ChatGPT o Claude con RAG, davanti a una domanda, fa più o meno così:</p>
@@ -345,7 +360,13 @@ small distance between vectors → similar meaning
 large distance between vectors → different meaning</div>
 <h3>Vector DB: the searchable archive</h3>
 <p>All document embeddings are stored in a <b>vector DB</b>, a database designed specifically to quickly find, among millions of vectors, the ones closest to a given vector — without comparing them one by one.</p>
-<div class="key"><b>Key takeaway</b>RAG = turn the question and documents into vectors (embeddings), store them in a searchable database (vector DB), and retrieve only the pieces closest in meaning to the question.</div>`},
+<h3>Which vector DB, in practice</h3>
+<p>There's no single "right" vector DB: the choice depends on what you already run in production. Among the most used open-source options:</p>
+<p><b>pgvector</b> — a PostgreSQL extension: if you already run Postgres, you add vector search without managing a separate system. A great starting point for small to medium projects.</p>
+<p><b>Qdrant</b> and <b>Weaviate</b> — "native" vector DBs, built specifically for this: metadata filtering, built-in hybrid search (vector + keyword), good scalability over large collections. A solid choice as documents grow or when you need complex filters (e.g. "only documents from department X").</p>
+<p><b>Milvus</b> — built for very large scale (billions of vectors), common in enterprise contexts; more complex to self-host than the alternatives above.</p>
+<p><b>FAISS</b> — not a database but a library (from Meta) for similarity search: very fast, runs in memory, but with no built-in persistence, filtering or multi-user handling. Useful for prototyping or for volumes that comfortably fit in RAM.</p>
+<div class="key"><b>Practical rule of thumb</b>Already on Postgres? Start with pgvector. Need metadata filtering and hybrid search out of the box? Qdrant or Weaviate. Need to scale to billions of vectors? Milvus. Just prototyping? FAISS.</div>`},
 {title:"Chunking: how to cut up documents", body:`
 <h3>Why you don't index a whole book</h3>
 <p>An embedding summarizes a text's meaning into a single vector. If the text is too long and heterogeneous — an entire manual, a book — that summary becomes <b>too generic</b>: it mixes together dozens of different topics and loses the ability to produce a precise match with the user's question.</p>
@@ -365,7 +386,14 @@ large distance between vectors → different meaning</div>
 <p>The initial similarity search is fast but somewhat coarse: it works over millions of vectors and uses mathematical shortcuts to stay quick. A <b>reranking</b> model, slower but more precise, takes the few candidates found and <b>reorders</b> them with a direct, more accurate comparison against the question, before handing them to the LLM.</p>
 <h3>When exact words matter: hybrid search</h3>
 <p>Embeddings capture meaning, but they can blur <b>exact</b> matches: a product code like "SKU-2231" and one like "SKU-2241" can end up vectorially close despite being two different products. That's why many systems pair semantic search with traditional <b>keyword</b> search (e.g. BM25): this combination is called <b>hybrid search</b> and is useful for codes, proper names, IDs, serial numbers.</p>
-<div class="key"><b>Key takeaway</b>Retrieval = finding the chunks most similar to the question (similarity search), often refined by reranking, and sometimes paired with keyword search when lexical precision matters.</div>`},
+<h3>Compacting conversational memory</h3>
+<p>In long conversations, keeping the entire history verbatim in the context window quickly becomes unsustainable: it costs (Module 1: more tokens, more KV cache) and it worsens answers (chapter 2: lost in the middle). That's why many systems periodically run a <b>compaction pass</b>: instead of keeping every past turn word for word, they summarize it into a shorter text.</p>
+<p>In practice: the <b>most recent</b> turns stay intact (the model needs to see them precisely), while <b>older</b> ones get replaced by a progressively updated summary — a kind of "minutes" of the conversation so far.</p>
+<h3>When it triggers and how it enters the context window</h3>
+<p>Compaction usually triggers on simple criteria: when history approaches a threshold of the available token budget, after a fixed number of turns, or at time intervals. The summary isn't magic: it's generated by the same LLM (or a smaller one), explicitly asked to condense the conversation so far.</p>
+<p>Once created, the summary is simply <b>re-inserted into the context window</b> on every subsequent request, usually near the system prompt: it behaves like a chunk retrieved via RAG, except the content comes from the conversation itself instead of an external document.</p>
+<div class="warn"><b>Careful</b>Compacting means losing detail: a summary only contains what whoever generated it judged relevant. If a precise fact — a number, a date — falls outside the summary, the conversation "forgets" it, even if the user wrote it just a few turns earlier.</div>
+<div class="key"><b>Key takeaway</b>Retrieval = finding the chunks most similar to the question (similarity search), often refined by reranking, sometimes paired with keyword search. Conversational memory uses the same "summarize and re-inject" logic to stay within the context window's budget.</div>`},
 {title:"Recap: memory in practice", body:`
 <h3>The full picture</h3>
 <p>Let's put the pieces back together. A ChatGPT- or Claude-like system with RAG, faced with a question, roughly does this:</p>
